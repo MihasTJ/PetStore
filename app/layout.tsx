@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Nav } from "@/components/nav";
+import { CartProvider } from "@/lib/cart";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-serif",
@@ -35,8 +36,10 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", cormorant.variable, inter.variable, "font-sans")}
     >
       <body className="min-h-full flex flex-col">
+        <CartProvider>
           <Nav />
           {children}
+        </CartProvider>
         </body>
     </html>
   );

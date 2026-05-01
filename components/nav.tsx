@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ShoppingBag, User, Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useCart } from "@/lib/cart";
 
 const links = [
   { label: "Produkty", href: "/produkty" },
@@ -16,6 +17,7 @@ export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { count } = useCart();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -72,8 +74,7 @@ export function Nav() {
             aria-label="Koszyk"
           >
             <ShoppingBag size={20} />
-            {/* TODO: zastąp `false` stanem koszyka np. cartCount > 0 */}
-            {false && (
+            {count > 0 && (
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-terracotta" />
             )}
           </a>

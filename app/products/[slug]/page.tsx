@@ -1,12 +1,13 @@
-import { ShoppingBag, Star, Shield, Truck } from "lucide-react";
+import { Star, Shield, Truck, ShieldCheck, BadgeCheck, UserRound, ChevronRight } from "lucide-react";
 import { ProductCertificates } from "@/components/product-certificates";
 import { ProductVetEndorsement } from "@/components/product-vet-endorsement";
 import { ProductDoseCalculator } from "@/components/product-dose-calculator";
+import { AddToCartButton } from "@/components/add-to-cart-button";
 
 // Mock — docelowo dane z Supabase przez params.slug
 const product = {
   name: "Suplement stawowy Senior+ dla psa",
-  subtitle: "Glukozamina, MSM i kolagen — naturalna ochrona stawów dużych ras",
+  subtitle: "Twój pies wstanie rano bez tej charakterystycznej sztywności — naturalnie, bez kompromisów w składzie.",
   price: "149,00 zł",
   priceNote: "Wystarczy na 3 miesiące — ok. 1,66 zł dziennie",
   rating: 4.8,
@@ -52,8 +53,25 @@ export default function ProductPage() {
   return (
     <main className="bg-canvas">
 
+      {/* ── BREADCRUMB ──────────────────────────────────────────────── */}
+      <nav aria-label="Nawigacja okruszkowa" className="mx-auto max-w-editorial px-6 pt-20 md:px-12 md:pt-28">
+        <ol className="flex items-center gap-1.5 text-xs text-ink-subtle">
+          <li>
+            <a href="/" className="hover:text-ink-muted transition-colors">Sklep</a>
+          </li>
+          <li aria-hidden><ChevronRight size={12} /></li>
+          <li>
+            <a href="/suplementy" className="hover:text-ink-muted transition-colors">Suplementy</a>
+          </li>
+          <li aria-hidden><ChevronRight size={12} /></li>
+          <li className="text-ink-muted truncate max-w-[200px]" aria-current="page">
+            {product.name}
+          </li>
+        </ol>
+      </nav>
+
       {/* ── HERO PRODUKTU ───────────────────────────────────────────── */}
-      <section className="mx-auto max-w-shell px-6 py-16 md:px-12 md:py-24">
+      <section className="mx-auto max-w-editorial px-6 py-10 md:px-12 md:py-16">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-12 md:gap-16">
 
           {/* Galeria */}
@@ -142,22 +160,38 @@ export default function ProductPage() {
               <p className="mt-2 text-sm text-ink-muted">{product.priceNote}</p>
             </div>
 
+            {/* Mini trust strip — widoczne przed decyzją zakupową */}
+            <div className="mt-6 flex flex-col gap-2.5">
+              {[
+                { icon: ShieldCheck, label: "Weterynaryjnie zweryfikowany skład" },
+                { icon: BadgeCheck,  label: "Bez wypełniaczy i konserwantów syntetycznych" },
+                { icon: UserRound,   label: "Poleca dr n. wet. Anna Kowalska, Klinika Varsovia" },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-2.5">
+                  <Icon size={15} className="shrink-0 text-moss" />
+                  <span className="text-sm text-ink-muted">{label}</span>
+                </div>
+              ))}
+            </div>
+
             {/* CTA */}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
-                type="button"
+              <AddToCartButton
                 disabled={!product.isAvailable}
-                className="inline-flex items-center justify-center gap-2 rounded-button bg-terracotta px-8 py-4 text-base font-medium text-card-warm transition-colors hover:bg-terracotta-hover disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ShoppingBag size={17} />
-                Dodaj dla pupila
-              </button>
+                item={{
+                  id: "suplement-stawowy-senior",
+                  slug: "suplement-stawowy-senior",
+                  name: product.name,
+                  price: 149,
+                  weight: "90 tabletek · 3 miesiące",
+                }}
+              />
             </div>
 
             {/* Delivery trust */}
             <div className="mt-6 flex items-center gap-2 text-sm text-ink-muted">
               <Truck size={15} className="text-ink-subtle shrink-0" />
-              <span>Wysyłka w 24h · Darmowy zwrot w 30 dni bez pytań</span>
+              <span>Wysyłka w 24h · Jeśli pupil nie zaakceptuje — zwrot bez pytań</span>
             </div>
 
           </div>
@@ -178,7 +212,7 @@ export default function ProductPage() {
                 jest tu z powodu.
               </h2>
               <p className="mt-6 text-base leading-body text-ink-muted">
-                Żadnych wypełniaczy, żadnych substancji "dla objętości".
+                Żadnych wypełniaczy, żadnych substancji „dla objętości".
                 Każdy składnik ma konkretne, udokumentowane działanie dla zdrowia stawów.
               </p>
             </div>
@@ -243,34 +277,61 @@ export default function ProductPage() {
                 pet: "Max, golden retriever, 8 lat",
                 text: "Po 6 tygodniach Max wstaje rano bez tej charakterystycznej sztywności. Nie spodziewałam się tak szybkiego efektu.",
                 author: "Karolina W.",
+                rating: 5,
+                date: "marzec 2026",
+                petInitial: "M",
               },
               {
                 pet: "Bruno, labrador, 7 lat",
-                text: "Skład jest jednym z bardziej transparentnych na rynku — to był główny powód zakupu. Bruno toleruje bez problemu.",
+                text: "Skład bardzo transparentny — to był główny powód zakupu. Bruno toleruje bez problemu, choć pierwsze dni podawałam z jedzeniem bo był ostrożny.",
                 author: "Tomasz K.",
+                rating: 4,
+                date: "luty 2026",
+                petInitial: "B",
               },
               {
                 pet: "Simba, owczarek, 9 lat",
-                text: "Weterynarz sam polecił ten produkt po obejrzeniu składu. Nie ma tu niczego zbędnego.",
+                text: "Weterynarz sam polecił ten produkt po obejrzeniu składu. Nie ma tu niczego zbędnego — i widać to po Simbie.",
                 author: "Marta R.",
+                rating: 5,
+                date: "kwiecień 2026",
+                petInitial: "S",
               },
             ].map((review) => (
               <div
                 key={review.author}
                 className="bg-card-warm rounded-card-sm p-6 shadow-warm flex flex-col"
               >
-                <div className="flex items-center gap-1 mb-4">
+                {/* Nagłówek karty: placeholder zdjęcia + dane pupila */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div
+                    className="shrink-0 w-10 h-10 rounded-full bg-warm-island flex items-center justify-center"
+                    aria-label={`Zdjęcie pupila ${review.petInitial}`}
+                  >
+                    <span className="text-sm font-medium text-ink-muted">
+                      {review.petInitial}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-ink">{review.pet}</p>
+                    <p className="text-[11px] text-ink-subtle mt-0.5">{review.author} · {review.date}</p>
+                  </div>
+                </div>
+
+                {/* Gwiazdki */}
+                <div className="flex items-center gap-1 mb-3">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={12} className="text-terracotta fill-terracotta" />
+                    <Star
+                      key={i}
+                      size={12}
+                      className={i < review.rating ? "text-terracotta fill-terracotta" : "text-border-warm fill-border-warm"}
+                    />
                   ))}
                 </div>
-                <p className="text-sm leading-body text-ink flex-1 mb-5">
+
+                <p className="text-sm leading-body text-ink flex-1">
                   „{review.text}"
                 </p>
-                <div className="pt-4 border-t border-border-warm">
-                  <p className="text-xs font-medium text-ink">{review.author}</p>
-                  <p className="text-[11px] text-ink-subtle mt-0.5">{review.pet}</p>
-                </div>
               </div>
             ))}
           </div>
