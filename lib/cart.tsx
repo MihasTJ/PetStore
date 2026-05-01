@@ -19,12 +19,16 @@ interface CartContextValue {
   clearCart: () => void;
   total: number;
   count: number;
+  isOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -60,7 +64,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const count = items.reduce((s, i) => s + i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, total, count }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, total, count, isOpen, openCart: () => setIsOpen(true), closeCart: () => setIsOpen(false) }}>
       {children}
     </CartContext.Provider>
   );

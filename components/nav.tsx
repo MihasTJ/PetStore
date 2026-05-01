@@ -17,7 +17,7 @@ export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const { count } = useCart();
+  const { count, openCart } = useCart();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -68,16 +68,20 @@ export function Nav() {
             <User size={20} />
           </a>
 
-          <a
-            href="/koszyk"
+          <button
+            type="button"
+            onClick={openCart}
             className="relative text-ink-muted hover:text-ink transition-colors"
-            aria-label="Koszyk"
+            aria-label="Otwórz koszyk"
           >
             <ShoppingBag size={20} />
             {count > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-terracotta" />
+              <span
+                key={count}
+                className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-terracotta animate-in zoom-in-50 duration-300"
+              />
             )}
-          </a>
+          </button>
 
           <button
             className="md:hidden text-ink-muted hover:text-ink transition-colors"

@@ -73,10 +73,9 @@ export default function PotwierdzeniePage() {
                 <p className="text-xs font-medium tracking-eyebrow uppercase text-ink-subtle mb-1">
                   Raport zdrowotny
                 </p>
-                <p className="text-base font-medium text-ink">Profil zdrowotny Twojego pupila</p>
+                <p className="text-base font-medium text-ink">Raport zdrowotny — jutro rano</p>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  Szczegółowy raport wyślemy następnego dnia rano — zawiera plan suplementacji
-                  i wskazówki dla Twojego pupila na najbliższe miesiące.
+                  Szczegółowy plan suplementacji i wskazówki zdrowotne na najbliższe miesiące.
                 </p>
               </div>
             </div>
@@ -93,21 +92,21 @@ export default function PotwierdzeniePage() {
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-4">
           <Link
-            href="/produkty"
-            className="inline-flex items-center justify-center gap-2 rounded-button bg-terracotta px-8 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover transition-colors"
+            href="/konto/rejestracja"
+            className="inline-flex items-center justify-center gap-2 rounded-button bg-terracotta px-8 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover transition-colors cursor-pointer"
           >
-            Wróć do sklepu
+            Utwórz profil pupila
             <ArrowRight size={16} />
           </Link>
           <Link
-            href="/konto/rejestracja"
-            className="inline-flex items-center justify-center gap-2 rounded-button border border-border-warm px-8 py-4 text-base font-medium text-ink hover:border-terracotta/50 transition-colors"
+            href="/produkty"
+            className="inline-flex items-center justify-center gap-2 rounded-button border border-border-warm px-8 py-4 text-base font-medium text-ink hover:border-terracotta/50 transition-colors cursor-pointer"
           >
-            Utwórz profil pupila
+            Wróć do sklepu
           </Link>
         </div>
 
-        {/* Kontekst drugiego CTA */}
+        {/* Kontekst CTA */}
         <p className="mt-4 text-xs leading-body text-ink-subtle max-w-sm">
           Profil pupila pozwala przechowywać raport zdrowotny i otrzymywać
           spersonalizowane przypomnienia o suplementacji.

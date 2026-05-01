@@ -8,6 +8,7 @@ const products: Product[] = [
     description:
       "Dla psów od 5. roku życia predysponowanych do problemów stawowych. Naturalny skład, bez wypełniaczy — wstanie rano bez bólu.",
     price: "89,00 zł",
+    priceNumeric: 89,
     weight: "250 g / ok. 3 miesiące",
     healthTags: ["joints"],
     isPremiumVerified: true,
@@ -20,6 +21,7 @@ const products: Product[] = [
     description:
       "Pełnowartościowy posiłek bez kompromisów w składzie. Kwasy omega-3 dla zdrowej sierści i elastycznej skóry kota.",
     price: "64,00 zł",
+    priceNumeric: 64,
     weight: "400 g",
     healthTags: ["coat", "gut"],
     isPremiumVerified: true,
@@ -32,6 +34,7 @@ const products: Product[] = [
     description:
       "Przywraca równowagę mikrobioty w 14 dni. Bezpieczny po antybiotykoterapii i przy zmianie diety.",
     price: "72,00 zł",
+    priceNumeric: 72,
     weight: "60 kapsułek",
     healthTags: ["gut"],
     isPremiumVerified: false,

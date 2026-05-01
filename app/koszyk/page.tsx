@@ -73,7 +73,7 @@ export default function KoszykPage() {
                     </div>
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="shrink-0 mt-0.5 text-ink-subtle hover:text-error-warm transition-colors"
+                      className="shrink-0 mt-0.5 p-1.5 rounded text-ink-subtle hover:text-error-warm hover:bg-error-warm/8 transition-colors cursor-pointer"
                       aria-label={`Usuń ${item.name} z koszyka`}
                     >
                       <Trash2 size={15} strokeWidth={1.5} />
@@ -85,7 +85,7 @@ export default function KoszykPage() {
                     <div className="inline-flex items-center border border-border-warm rounded-field overflow-hidden">
                       <button
                         onClick={() => updateQty(item.id, item.quantity - 1)}
-                        className="w-9 h-9 flex items-center justify-center text-ink-muted hover:text-ink transition-colors"
+                        className="w-9 h-9 flex items-center justify-center text-ink-muted hover:bg-warm-island hover:text-ink transition-colors cursor-pointer"
                         aria-label="Zmniejsz ilość"
                       >
                         <Minus size={13} />
@@ -95,7 +95,7 @@ export default function KoszykPage() {
                       </span>
                       <button
                         onClick={() => updateQty(item.id, item.quantity + 1)}
-                        className="w-9 h-9 flex items-center justify-center text-ink-muted hover:text-ink transition-colors"
+                        className="w-9 h-9 flex items-center justify-center text-ink-muted hover:bg-terracotta/10 hover:text-terracotta transition-colors cursor-pointer"
                         aria-label="Zwiększ ilość"
                       >
                         <Plus size={13} />
@@ -154,7 +154,7 @@ export default function KoszykPage() {
 
               <Link
                 href="/checkout"
-                className="mt-6 flex items-center justify-center gap-2 w-full rounded-button bg-terracotta px-6 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover transition-colors"
+                className="mt-6 flex items-center justify-center gap-2 w-full rounded-button bg-terracotta px-6 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover transition-colors cursor-pointer"
               >
                 Przejdź do dostawy
                 <ArrowRight size={16} />

@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Nav } from "@/components/nav";
 import { CartProvider } from "@/lib/cart";
+import { CartDrawer } from "@/components/cart-drawer";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-serif",
@@ -39,6 +40,7 @@ export default function RootLayout({
         <CartProvider>
           <Nav />
           {children}
+          <CartDrawer />
         </CartProvider>
         </body>
     </html>

@@ -11,7 +11,7 @@ export default function Home() {
               Premium Pet Care
             </p>
 
-            <h1 className="font-serif font-medium leading-editorial text-ink text-5xl md:text-6xl lg:text-7xl">
+            <h1 className="font-serif font-normal leading-editorial text-ink text-5xl md:text-6xl lg:text-7xl">
               Twój pupil zasługuje<br />
               na to, co najlepsze.
             </h1>
@@ -24,7 +24,7 @@ export default function Home() {
             <div className="mt-12">
               <a
                 href="#produkty"
-                className="inline-flex items-center justify-center rounded-button bg-terracotta px-8 py-4 text-base font-medium text-card-warm transition-colors hover:bg-terracotta-hover"
+                className="inline-flex items-center justify-center rounded-button bg-terracotta px-8 py-4 text-base font-medium text-card-warm transition-colors hover:bg-terracotta-hover cursor-pointer"
               >
                 Sprawdź, co polecamy
               </a>

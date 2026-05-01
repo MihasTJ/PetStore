@@ -1,4 +1,8 @@
-import { ShieldCheck } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { ShieldCheck, ShoppingBag, Check } from "lucide-react";
+import { useCart } from "@/lib/cart";
 
 export type HealthTag = "joints" | "coat" | "weight" | "teeth" | "heart" | "gut";
 
@@ -17,6 +21,7 @@ export interface Product {
   name: string;
   description: string;
   price: string;
+  priceNumeric: number;
   weight: string;
   healthTags: HealthTag[];
   isPremiumVerified?: boolean;
@@ -24,15 +29,27 @@ export interface Product {
 }
 
 export function ProductCard({
+  id,
   slug,
   name,
   description,
   price,
+  priceNumeric,
   weight,
   healthTags,
   isPremiumVerified = false,
   hasVetEndorsement = false,
-}: Omit<Product, "id">) {
+}: Product) {
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+
+  function handleAdd() {
+    if (added) return;
+    addItem({ id: String(id), slug, name, price: priceNumeric, weight });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  }
+
   return (
     <article className="group flex flex-col bg-card-warm rounded-card-sm shadow-warm hover:shadow-warm-md transition-shadow duration-200 overflow-hidden">
       {/* Image */}
@@ -99,9 +116,20 @@ export function ProductCard({
           </div>
           <button
             type="button"
-            className="shrink-0 rounded-button bg-terracotta px-4 py-2 text-sm font-medium text-card-warm transition-all hover:bg-terracotta-hover active:scale-95 active:brightness-90"
+            onClick={handleAdd}
+            className={[
+              "shrink-0 inline-flex items-center gap-1.5 rounded-button px-4 py-2 text-sm font-medium text-card-warm",
+              "transition-[background-color,transform] duration-300 active:scale-95 cursor-pointer",
+              added ? "bg-moss" : "bg-terracotta hover:bg-terracotta-hover",
+            ].join(" ")}
           >
-            Dodaj dla pupila
+            <span key={String(added)} className="inline-flex items-center gap-1.5 animate-in zoom-in-75 fade-in duration-150">
+              {added ? (
+                <><Check size={13} strokeWidth={2} />Dodano</>
+              ) : (
+                <><ShoppingBag size={13} />Dodaj dla pupila</>
+              )}
+            </span>
           </button>
         </div>
       </div>
