@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Nav } from "@/components/nav";
+import { Footer } from "@/components/footer";
 import { CartProvider } from "@/lib/cart";
 import { CartDrawer } from "@/components/cart-drawer";
 
@@ -40,6 +41,7 @@ export default function RootLayout({
         <CartProvider>
           <Nav />
           {children}
+          <Footer />
           <CartDrawer />
         </CartProvider>
         </body>
