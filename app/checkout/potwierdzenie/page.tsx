@@ -1,11 +1,38 @@
 import { ShieldCheck, Mail, Package, Truck, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-// Docelowo: numer zamówienia i dane z Supabase przez searchParams lub cookies sesji
-const ORDER_NUMBER = "NB-2847";
-const ESTIMATED_DELIVERY = "piątek, 3 maja";
+function fmt(n: number) {
+  return n.toFixed(2).replace(".", ",") + " zł";
+}
 
-export default function PotwierdzeniePage() {
+export default async function PotwierdzeniePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ order_id?: string }>;
+}) {
+  const { order_id } = await searchParams;
+  const admin = createAdminClient();
+
+  let orderNumber: string | null = null;
+  let orderTotal: number | null = null;
+  let customerEmail: string | null = null;
+
+  if (order_id) {
+    const { data: order } = await admin
+      .from("orders")
+      .select("id, total_amount, shipping_address")
+      .eq("id", order_id)
+      .single();
+
+    if (order) {
+      orderNumber = order.id.slice(0, 8).toUpperCase();
+      orderTotal = order.total_amount;
+      const addr = order.shipping_address as Record<string, string> | null;
+      customerEmail = addr?.email ?? null;
+    }
+  }
+
   return (
     <main className="bg-canvas">
       <div className="mx-auto max-w-editorial px-6 pt-28 pb-24 md:px-12 md:pt-36 md:pb-32">
@@ -23,8 +50,8 @@ export default function PotwierdzeniePage() {
           Doskonały wybór dla Twojego pupila.
         </h1>
         <p className="text-base leading-body text-ink-muted max-w-md mb-12">
-          Potwierdzenie zamówienia i raport zdrowotny wyślemy na Twój adres e-mail
-          w ciągu kilku minut.
+          Potwierdzenie zamówienia{customerEmail ? ` wyślemy na ${customerEmail}` : " wyślemy na Twój adres e-mail"}{" "}
+          w ciągu kilku minut. Raport zdrowotny czeka jutro rano.
         </p>
 
         {/* Karta z detalami */}
@@ -40,7 +67,14 @@ export default function PotwierdzeniePage() {
                 <p className="text-xs font-medium tracking-eyebrow uppercase text-ink-subtle mb-1">
                   Numer zamówienia
                 </p>
-                <p className="text-base font-medium text-ink font-tnum">{ORDER_NUMBER}</p>
+                <p className="text-base font-medium text-ink font-tnum">
+                  {orderNumber ?? "—"}
+                </p>
+                {orderTotal !== null && (
+                  <p className="text-xs text-ink-muted mt-0.5">
+                    Kwota: {fmt(orderTotal)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -53,11 +87,11 @@ export default function PotwierdzeniePage() {
               </div>
               <div>
                 <p className="text-xs font-medium tracking-eyebrow uppercase text-ink-subtle mb-1">
-                  Przewidywana dostawa
+                  Dostawa
                 </p>
-                <p className="text-base font-medium text-ink">Paczka w drodze — {ESTIMATED_DELIVERY}</p>
+                <p className="text-base font-medium text-ink">Paczka w drodze do Ciebie</p>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  Powiadomimy Cię SMS-em, gdy dotrze do paczkomatu.
+                  Powiadomimy Cię, gdy dotrze do paczkomatu lub kuriera.
                 </p>
               </div>
             </div>
@@ -73,7 +107,7 @@ export default function PotwierdzeniePage() {
                 <p className="text-xs font-medium tracking-eyebrow uppercase text-ink-subtle mb-1">
                   Raport zdrowotny
                 </p>
-                <p className="text-base font-medium text-ink">Raport zdrowotny — jutro rano</p>
+                <p className="text-base font-medium text-ink">Jutro rano na Twoją skrzynkę</p>
                 <p className="text-xs text-ink-muted mt-0.5">
                   Szczegółowy plan suplementacji i wskazówki zdrowotne na najbliższe miesiące.
                 </p>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart";
+import { createClient } from "@/lib/supabase/client";
+import { createOrder } from "@/lib/actions/checkout";
 import {
   Package,
   MapPin,
@@ -53,7 +54,6 @@ function Field({
 }
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const { items, total, clearCart } = useCart();
 
   const [delivery, setDelivery] = useState<DeliveryMethod>("inpost");
@@ -62,6 +62,14 @@ export default function CheckoutPage() {
   const [showNip, setShowNip] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    createClient().auth.getUser()
+      .then(({ data }) => { if (data.user) setLoggedIn(true); })
+      .catch(() => {}); // guest users have no session — ignore network errors
+  }, []);
 
   const [form, setForm] = useState({
     email: "", firstName: "", lastName: "",
@@ -100,10 +108,31 @@ export default function CheckoutPage() {
     e.preventDefault();
     if (!agreed) return;
     setSubmitting(true);
-    // Docelowo: Server Action → Supabase → PayU redirect
-    await new Promise((r) => setTimeout(r, 800));
+    setCheckoutError(null);
+
+    const result = await createOrder({
+      email: form.email,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      street: form.street,
+      apt: form.apt,
+      postalCode: form.postalCode,
+      city: form.city,
+      nip: form.nip,
+      delivery,
+      premiumPackaging: hasPremiumPackaging,
+      packagingNote,
+      items: items.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
+    });
+
+    if ("error" in result) {
+      setCheckoutError(result.error);
+      setSubmitting(false);
+      return;
+    }
+
     clearCart();
-    router.push("/checkout/potwierdzenie");
+    window.location.href = result.redirectUrl;
   }
 
   return (
@@ -139,13 +168,15 @@ export default function CheckoutPage() {
                     label="Adres e-mail" id="email" type="email" placeholder="marta@przykład.pl" required
                     value={form.email} onChange={set("email")} className="sm:col-span-2"
                   />
-                  <p className="sm:col-span-2 text-xs leading-body text-ink-subtle">
-                    Masz już konto?{" "}
-                    <Link href="/konto" className="text-terracotta underline underline-offset-4 hover:text-terracotta-hover transition-colors">
-                      Zaloguj się
-                    </Link>
-                    {" "}— zachowasz raport zdrowotny pupila i historię zamówień.
-                  </p>
+                  {!loggedIn && (
+                    <p className="sm:col-span-2 text-xs leading-body text-ink-subtle">
+                      Masz już konto?{" "}
+                      <Link href="/konto" className="text-terracotta underline underline-offset-4 hover:text-terracotta-hover transition-colors">
+                        Zaloguj się
+                      </Link>
+                      {" "}— zachowasz raport zdrowotny pupila i historię zamówień.
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -382,6 +413,13 @@ export default function CheckoutPage() {
                     </span>
                   ))}
                 </div>
+
+                {/* Błąd płatności */}
+                {checkoutError && (
+                  <p className="mt-5 rounded-field border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-xs leading-body text-terracotta">
+                    {checkoutError}
+                  </p>
+                )}
 
                 {/* CTA */}
                 <button

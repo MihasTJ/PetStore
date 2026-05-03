@@ -179,8 +179,8 @@ export default function ProductPage() {
               <AddToCartButton
                 disabled={!product.isAvailable}
                 item={{
-                  id: "suplement-stawowy-senior",
-                  slug: "suplement-stawowy-senior",
+                  id: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                  slug: "suplement-stawowy-senior-plus",
                   name: product.name,
                   price: 149,
                   weight: "90 tabletek · 3 miesiące",
