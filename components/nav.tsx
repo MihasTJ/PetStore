@@ -71,7 +71,7 @@ export function Nav() {
           <button
             type="button"
             onClick={openCart}
-            className="relative p-2 -m-2 text-ink-muted hover:text-ink transition-colors"
+            className="relative p-2 -m-2 text-ink-muted hover:text-ink transition-colors cursor-pointer"
             aria-label="Otwórz koszyk"
           >
             <ShoppingBag size={20} />

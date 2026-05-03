@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Shield, Info, BadgeCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Shield, Info, BadgeCheck, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BreedCombobox } from "@/components/breed-combobox";
 import {
@@ -16,6 +16,7 @@ import {
   type HealthArea,
   type ProductRecommendation,
 } from "@/lib/quiz-engine";
+import { submitQuiz } from "@/lib/actions/quiz";
 
 // ── Types ───────────────────────────────────────────────────────────
 type Step =
@@ -582,7 +583,15 @@ function RecommendationCard({ rec, petName }: { rec: ProductRecommendation; petN
   );
 }
 
-function Results({ report, onRestart }: { report: QuizReport; onRestart: () => void }) {
+function Results({
+  report,
+  saved,
+  onRestart,
+}: {
+  report: QuizReport;
+  saved: boolean;
+  onRestart: () => void;
+}) {
   return (
     <div>
       {/* Header */}
@@ -590,6 +599,12 @@ function Results({ report, onRestart }: { report: QuizReport; onRestart: () => v
         <p className="mb-3 text-[11px] font-medium tracking-eyebrow text-moss uppercase flex items-center gap-1.5">
           <Shield size={12} />
           Raport zdrowotny
+          {saved && (
+            <span className="ml-2 flex items-center gap-1 text-moss normal-case tracking-normal font-normal">
+              <Check size={11} strokeWidth={2} />
+              Zapisano w profilu
+            </span>
+          )}
         </p>
         <h2 className="font-serif font-normal leading-editorial text-ink text-3xl md:text-4xl">
           Profil zdrowotny{" "}
@@ -756,12 +771,17 @@ export function HealthQuiz() {
   const [step, setStep] = useState<Step>("welcome");
   const [data, setData] = useState<QuizData>(INITIAL_DATA);
   const [report, setReport] = useState<QuizReport | null>(null);
+  const [saved, setSaved] = useState(false);
 
-  function advance() {
+  async function advance() {
     const idx = STEP_ORDER.indexOf(step);
     const next = STEP_ORDER[idx + 1];
     if (next === "results") {
       setReport(generateReport(data));
+      setSaved(false);
+      submitQuiz(data).then((res) => {
+        if (res.saved) setSaved(true);
+      });
     }
     setStep(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -777,6 +797,7 @@ export function HealthQuiz() {
     setStep("welcome");
     setData(INITIAL_DATA);
     setReport(null);
+    setSaved(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -892,7 +913,7 @@ export function HealthQuiz() {
         )}
 
         {step === "results" && report && (
-          <Results report={report} onRestart={restart} />
+          <Results report={report} saved={saved} onRestart={restart} />
         )}
       </div>
     </main>
