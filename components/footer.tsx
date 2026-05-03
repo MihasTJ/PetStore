@@ -51,7 +51,7 @@ export function Footer() {
               href="/quiz"
               className="inline-block mt-6 text-sm text-terracotta hover:text-terracotta-hover transition-colors border-b border-terracotta/40 hover:border-terracotta pb-0.5"
             >
-              Nie wiesz, od czego zacząć? Quiz zdrowotny zajmie 2 minuty.
+              Nie wiesz, od czego zacząć? Quiz zdrowotny zajmie 3 minuty.
             </Link>
           </div>
 
