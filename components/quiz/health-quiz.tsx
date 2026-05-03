@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Shield, Info, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BreedCombobox } from "@/components/breed-combobox";
 import {
   generateReport,
   type Species,
@@ -47,6 +48,7 @@ const STEP_ORDER: Step[] = [
   "results",
 ];
 
+// ── Breed autocomplete ───────────────────────────────────────────────
 // ── Primitives ──────────────────────────────────────────────────────
 function ProgressBar({ step }: { step: Step }) {
   const num = STEP_NUMBERS[step];
@@ -81,7 +83,7 @@ function OptionCard({ selected, onClick, label, sub, icon }: OptionCardProps) {
     <button
       onClick={onClick}
       className={cn(
-        "w-full rounded-card-sm p-5 text-left transition-all duration-200 border-2",
+        "w-full rounded-card-sm p-5 text-left transition-all duration-200 border-2 cursor-pointer",
         "bg-card-warm shadow-warm hover:shadow-warm-md",
         selected
           ? "border-terracotta"
@@ -141,7 +143,7 @@ function NavRow({
           "flex items-center gap-2 rounded-button px-7 py-3 text-sm font-medium transition-colors",
           nextDisabled
             ? "bg-border-warm text-ink-subtle cursor-not-allowed"
-            : "bg-terracotta text-card-warm hover:bg-terracotta-hover"
+            : "bg-terracotta text-card-warm hover:bg-terracotta-hover cursor-pointer"
         )}
       >
         {nextLabel}
@@ -225,12 +227,11 @@ function StepProfile({
             Jakiej jest rasy?{" "}
             <span className="text-ink-subtle font-normal">(opcjonalnie)</span>
           </label>
-          <input
-            type="text"
+          <BreedCombobox
             value={breed}
-            onChange={(e) => onChangeBreed(e.target.value)}
+            onChange={onChangeBreed}
+            species={species}
             placeholder={species === "kot" ? "np. europejski, ragdoll, perski" : "np. golden retriever, mieszaniec"}
-            className="w-full rounded-field border border-border-warm bg-card-warm px-4 py-3 text-base text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta transition-colors"
           />
         </div>
       </div>
@@ -241,15 +242,17 @@ function StepProfile({
 function StepAge({
   value,
   petName,
+  species,
   onChange,
 }: {
   value: AgeStage | null;
   petName: string;
+  species: Species | null;
   onChange: (v: AgeStage) => void;
 }) {
   const name = petName || "Twój pupil";
   const options: { value: AgeStage; label: string; sub: string }[] = [
-    { value: "szczenie", label: "Szczenię / Kocię", sub: "Poniżej 1 roku życia" },
+    { value: "szczenie", label: species === "pies" ? "Szczenię" : species === "kot" ? "Kocię" : "Szczenię / Kocię", sub: "Poniżej 1 roku życia" },
     { value: "dorosly", label: "Dorosły", sub: "1–6 lat" },
     { value: "senior", label: "Senior", sub: "7 lat i więcej" },
   ];
@@ -419,7 +422,7 @@ function StepConcerns({
               key={opt.value}
               onClick={() => toggle(opt.value)}
               className={cn(
-                "rounded-tag px-4 py-2.5 text-sm font-medium transition-all duration-200 border-2",
+                "rounded-tag px-4 py-2.5 text-sm font-medium transition-all duration-200 border-2 cursor-pointer",
                 sel ? "border-transparent" : "border-border-warm bg-card-warm text-ink hover:border-border-warm"
               )}
               style={
@@ -446,9 +449,28 @@ function StepConcerns({
 
 // ── Results ─────────────────────────────────────────────────────────
 function ScoreCircle({ score }: { score: number }) {
+  const [count, setCount] = useState(0);
   const r = 44;
   const circ = 2 * Math.PI * r;
-  const filled = (score / 100) * circ;
+  const filled = (count / 100) * circ;
+
+  useEffect(() => {
+    let raf: number;
+    const duration = 1000;
+    const delay = 200;
+    const startTime = performance.now() + delay;
+
+    function tick(now: number) {
+      if (now < startTime) { raf = requestAnimationFrame(tick); return; }
+      const t = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setCount(Math.round(eased * score));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    }
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [score]);
 
   return (
     <div className="relative inline-flex items-center justify-center w-28 h-28">
@@ -465,17 +487,23 @@ function ScoreCircle({ score }: { score: number }) {
           strokeLinecap="round"
         />
       </svg>
-      <span className="font-tnum text-3xl font-medium text-ink leading-none">{score}</span>
+      <span className="font-tnum text-3xl font-medium text-ink leading-none">{count}</span>
     </div>
   );
 }
 
-function HealthAreaBar({ area }: { area: HealthArea }) {
+function HealthAreaBar({ area, index }: { area: HealthArea; index: number }) {
+  const [width, setWidth] = useState(0);
   const statusLabel = {
     dobry: "Dobry",
     uwaga: "Wymaga uwagi",
     "wymaga-wsparcia": "Wymaga wsparcia",
   }[area.status];
+
+  useEffect(() => {
+    const timer = setTimeout(() => setWidth(area.score), 350 + index * 150);
+    return () => clearTimeout(timer);
+  }, [area.score, index]);
 
   return (
     <div>
@@ -496,10 +524,11 @@ function HealthAreaBar({ area }: { area: HealthArea }) {
       </div>
       <div className="h-[5px] w-full rounded-full bg-border-warm overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-700"
+          className="h-full rounded-full"
           style={{
-            width: `${area.score}%`,
+            width: `${width}%`,
             backgroundColor: area.tagColor,
+            transition: "width 0.8s cubic-bezier(0.33, 1, 0.68, 1)",
           }}
         />
       </div>
@@ -592,8 +621,8 @@ function Results({ report, onRestart }: { report: QuizReport; onRestart: () => v
         <p className="text-xs font-medium tracking-eyebrow text-ink-muted uppercase">
           Analiza obszarów zdrowia
         </p>
-        {report.healthAreas.map((area) => (
-          <HealthAreaBar key={area.key} area={area} />
+        {report.healthAreas.map((area, i) => (
+          <HealthAreaBar key={area.key} area={area} index={i} />
         ))}
       </div>
 
@@ -673,7 +702,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
       <div className="mt-8 flex flex-col sm:flex-row items-start gap-6">
         <button
           onClick={onStart}
-          className="inline-flex items-center gap-2 rounded-button bg-terracotta px-8 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover transition-colors"
+          className="inline-flex items-center gap-2 rounded-button bg-terracotta px-8 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover transition-colors cursor-pointer"
         >
           Rozpocznij quiz
           <ChevronRight size={16} />
@@ -806,6 +835,7 @@ export function HealthQuiz() {
             <StepAge
               value={data.ageStage}
               petName={data.petName}
+              species={data.species}
               onChange={(v) => setData({ ...data, ageStage: v })}
             />
             <NavRow

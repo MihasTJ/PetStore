@@ -49,6 +49,26 @@ function getStatus(score: number): "dobry" | "uwaga" | "wymaga-wsparcia" {
   return "wymaga-wsparcia";
 }
 
+function makeProbioticRec(
+  species: Species | null,
+  name: string,
+  matchScore: number,
+  detailed: boolean
+): ProductRecommendation {
+  const isKot = species === "kot";
+  return {
+    id: isKot ? "probiotyk-jelitowy-wrazliwe-koty" : "probiotyk-jelitowy-wrazliwe-psy",
+    slug: isKot ? "probiotyk-jelitowy-wrazliwe-koty" : "probiotyk-jelitowy-wrazliwe-psy",
+    name: isKot ? "Probiotyk jelitowy dla wrażliwych kotów" : "Probiotyk jelitowy dla wrażliwych psów",
+    reason: detailed
+      ? `Kompleks probiotyczny z prebiotykami inuliny przywraca równowagę mikrobiomu jelitowego ${name} — bezpieczny też przy zmianie diety.`
+      : `Zdrowy mikrobiom jelitowy przekłada się na lepsze wchłanianie składników odżywczych i odporność ${name}.`,
+    matchScore,
+    price: "72,00 zł",
+    healthTags: ["Trawienie", "Mikrobiom", "Probiotyki"],
+  };
+}
+
 export function generateReport(data: QuizData): QuizReport {
   const name = data.petName.trim() || "Twój pupil";
   const isSenior = data.ageStage === "senior";
@@ -164,15 +184,9 @@ export function generateReport(data: QuizData): QuizReport {
     data.healthConcerns.includes("trawienie") ||
     (data.dietType === "sucha" && data.species === "kot")
   ) {
-    recommendations.push({
-      id: "probiotyk-jelitowy-wrazliwe-koty",
-      slug: "probiotyk-jelitowy-wrazliwe-koty",
-      name: "Probiotyk jelitowy dla wrażliwych zwierząt",
-      reason: `Kompleks probiotyczny z prebiotykami inuliny przywraca równowagę mikrobiomu jelitowego ${name} — bezpieczny też przy zmianie diety.`,
-      matchScore: data.healthConcerns.includes("trawienie") ? 92 : 82,
-      price: "72,00 zł",
-      healthTags: ["Trawienie", "Mikrobiom", "Probiotyki"],
-    });
+    recommendations.push(
+      makeProbioticRec(data.species, name, data.healthConcerns.includes("trawienie") ? 92 : 82, true)
+    );
   }
 
   // Always ensure at least 2 recommendations
@@ -188,15 +202,7 @@ export function generateReport(data: QuizData): QuizReport {
     });
   }
   if (recommendations.length === 1) {
-    recommendations.push({
-      id: "probiotyk-jelitowy-wrazliwe-koty",
-      slug: "probiotyk-jelitowy-wrazliwe-koty",
-      name: "Probiotyk jelitowy dla wrażliwych zwierząt",
-      reason: `Zdrowy mikrobiom jelitowy przekłada się na lepsze wchłanianie składników odżywczych i odporność ${name}.`,
-      matchScore: 77,
-      price: "72,00 zł",
-      healthTags: ["Trawienie", "Mikrobiom"],
-    });
+    recommendations.push(makeProbioticRec(data.species, name, 77, false));
   }
 
   // ── Next steps ──────────────────────────────────────────────────
