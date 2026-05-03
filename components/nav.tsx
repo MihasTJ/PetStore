@@ -71,7 +71,7 @@ export function Nav() {
           <button
             type="button"
             onClick={openCart}
-            className="relative text-ink-muted hover:text-ink transition-colors"
+            className="relative p-2 -m-2 text-ink-muted hover:text-ink transition-colors"
             aria-label="Otwórz koszyk"
           >
             <ShoppingBag size={20} />
@@ -84,7 +84,8 @@ export function Nav() {
           </button>
 
           <button
-            className="md:hidden text-ink-muted hover:text-ink transition-colors"
+            type="button"
+            className="md:hidden p-2 -m-2 text-ink-muted hover:text-ink transition-colors"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Zamknij menu" : "Otwórz menu"}
           >

@@ -38,7 +38,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("nobile_cart", JSON.stringify(items));
+    try {
+      localStorage.setItem("nobile_cart", JSON.stringify(items));
+    } catch {}
   }, [items]);
 
   function addItem(item: Omit<CartItem, "quantity">) {
