@@ -1,11 +1,18 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__context7__query-docs",
+      "mcp__supabase__execute_sql",
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "mcp__supabase__get_logs",
+      "mcp__supabase__apply_migration"
+    ]
+  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "supabase"
-  ],
-  "permissions": {
-    "allow": [
-      "mcp__context7__query-docs"
-    ]
-  }
+  ]
 }
