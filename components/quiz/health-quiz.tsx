@@ -782,6 +782,9 @@ export function HealthQuiz() {
       submitQuiz(data).then((res) => {
         if (res.saved) setSaved(true);
       });
+      if (data.petName.trim()) {
+        try { localStorage.setItem("quiz_pet_name", data.petName.trim()); } catch {}
+      }
     }
     setStep(next);
     window.scrollTo({ top: 0, behavior: "smooth" });

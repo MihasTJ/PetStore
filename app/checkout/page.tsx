@@ -64,11 +64,16 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [quizPetName, setQuizPetName] = useState<string | null>(null);
 
   useEffect(() => {
     createClient().auth.getUser()
       .then(({ data }) => { if (data.user) setLoggedIn(true); })
-      .catch(() => {}); // guest users have no session — ignore network errors
+      .catch(() => {});
+    try {
+      const stored = localStorage.getItem("quiz_pet_name");
+      if (stored) setQuizPetName(stored);
+    } catch {}
   }, []);
 
   const [form, setForm] = useState({
@@ -122,6 +127,7 @@ export default function CheckoutPage() {
       delivery,
       premiumPackaging: hasPremiumPackaging,
       packagingNote,
+      petName: quizPetName ?? undefined,
       items: items.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
     });
 
@@ -132,6 +138,7 @@ export default function CheckoutPage() {
     }
 
     clearCart();
+    try { localStorage.removeItem("quiz_pet_name"); } catch {}
     window.location.href = result.redirectUrl;
   }
 
@@ -330,18 +337,20 @@ export default function CheckoutPage() {
               </section>
 
               {/* Zgoda na regulamin */}
-              <div className="flex items-start gap-3">
-                <button
-                  type="button"
-                  onClick={() => setAgreed((v) => !v)}
+              <div
+                className="flex items-start gap-3 cursor-pointer"
+                onClick={(e) => {
+                  if (!(e.target as HTMLElement).closest("a")) setAgreed((v) => !v);
+                }}
+              >
+                <div
                   className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                     agreed ? "border-terracotta bg-terracotta" : "border-border-warm hover:border-terracotta/50"
                   }`}
-                  aria-pressed={agreed}
                 >
                   {agreed && <Check size={11} className="text-card-warm" strokeWidth={2.5} />}
-                </button>
-                <p className="text-xs leading-body text-ink-muted">
+                </div>
+                <span className="text-xs leading-body text-ink-muted">
                   Akceptuję{" "}
                   <Link href="/regulamin" className="underline underline-offset-4 hover:text-ink transition-colors">
                     Regulamin
@@ -351,7 +360,7 @@ export default function CheckoutPage() {
                     Politykę prywatności
                   </Link>
                   {" "}sklepu.
-                </p>
+                </span>
               </div>
 
             </div>
@@ -425,7 +434,7 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={!agreed || submitting}
-                  className="mt-6 w-full flex items-center justify-center gap-2 rounded-button bg-terracotta px-6 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="mt-6 w-full flex items-center justify-center gap-2 rounded-button bg-terracotta px-6 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 >
                   {submitting ? "Przekierowuję do płatności…" : "Zamów dla pupila"}
                 </button>

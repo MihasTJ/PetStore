@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,6 +19,7 @@ export interface CheckoutFormData {
   delivery: "inpost" | "dpd";
   premiumPackaging: boolean;
   packagingNote: string;
+  petName?: string;
   items: Pick<CartItem, "id" | "name" | "price" | "quantity">[];
 }
 
@@ -85,10 +87,17 @@ export async function createOrder(
   );
   const totalGrosze = productsGrosze + deliveryGrosze + packagingGrosze;
 
+  // Pre-generate order UUID so we don't need SELECT after INSERT.
+  // orders_select policy requires auth.uid() = customer_id — for guests both are
+  // NULL, and NULL = NULL is NULL (falsy) in Postgres, so chaining .select("id")
+  // on an anon insert returns nothing and breaks guest checkout.
+  const orderId = randomUUID();
+
   // INSERT order — RLS policy: with_check (true), anon key works fine
-  const { data: order, error: orderError } = await supabase
+  const { error: orderError } = await supabase
     .from("orders")
     .insert({
+      id: orderId,
       customer_id: user?.id ?? null,
       status: "pending",
       payment_status: "pending",
@@ -107,14 +116,15 @@ export async function createOrder(
       premium_packaging: data.premiumPackaging,
       packaging_note: data.packagingNote || null,
       nip: data.nip || null,
-    })
-    .select("id")
-    .single();
+      pet_name: data.petName?.trim() || null,
+    });
 
-  if (orderError || !order) {
+  if (orderError) {
     console.error("[checkout] Order insert error:", orderError);
     return { error: "Nie udało się zapisać zamówienia. Spróbuj ponownie." };
   }
+
+  const order = { id: orderId };
 
   // INSERT order_items — RLS policy: with_check (true), anon key works fine
   const { error: itemsError } = await supabase.from("order_items").insert(
@@ -141,13 +151,16 @@ export async function createOrder(
   const headersList = await headers();
   const host = headersList.get("host") ?? "localhost:3000";
   const proto = process.env.NODE_ENV === "production" ? "https" : "http";
-  const origin = `${proto}://${host}`;
+  const localOrigin = `${proto}://${host}`;
+  // Webhook must be publicly reachable by PayU — use tunnel URL in dev if set.
+  // continueUrl can stay on localhost since it's the user's own browser redirect.
+  const webhookOrigin = process.env.PAYU_WEBHOOK_BASE_URL ?? localOrigin;
   const ip =
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
 
   try {
     const payuOrder = await createPayuOrder({
-      notifyUrl: `${origin}/api/payu/webhook`,
+      notifyUrl: `${webhookOrigin}/api/payu/webhook`,
       customerIp: ip,
       merchantPosId: process.env.PAYU_POS_ID!,
       description: `Zamówienie #${order.id.slice(0, 8).toUpperCase()} — Nobile Pet Care`,
@@ -180,19 +193,20 @@ export async function createOrder(
           quantity: "1",
         },
       ],
-      continueUrl: `${origin}/checkout/potwierdzenie?order_id=${order.id}`,
+      continueUrl: `${localOrigin}/checkout/potwierdzenie?order_id=${order.id}`,
     });
 
-    // UPDATE payment_id — RLS blocks anon UPDATE, so admin client is needed here
-    // Non-fatal: webhook matches by extOrderId (our DB UUID) as primary key anyway
-    try {
-      const admin = createAdminClient();
-      await admin
-        .from("orders")
-        .update({ payment_id: payuOrder.orderId })
-        .eq("id", order.id);
-    } catch (updateErr) {
-      console.error("[checkout] payment_id update failed (non-fatal):", updateErr);
+    // UPDATE payment_id via SECURITY DEFINER function — bypasses RLS without service_role
+    {
+      const { error: updateErr } = await supabase.rpc("update_order_payment", {
+        p_order_id: order.id,
+        p_payu_id: payuOrder.orderId,
+        p_order_status: "pending",
+        p_payment_status: "pending",
+      });
+      if (updateErr) {
+        console.error("[checkout] payment_id update failed (non-fatal):", updateErr);
+      }
     }
 
     return { redirectUrl: payuOrder.redirectUri };
