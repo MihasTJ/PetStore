@@ -1,48 +1,21 @@
-import { ProductCard, type Product } from "./product-card";
+import { ProductCard } from "./product-card"
+import { getProducts } from "@/lib/supabase/queries/products"
 
-const products: Product[] = [
-  {
-    id: 1,
-    slug: "suplement-stawy-glukozamina-kolagen",
-    name: "Suplement na stawy z glukozaminą i kolagenem",
-    description:
-      "Dla psów od 5. roku życia predysponowanych do problemów stawowych. Naturalny skład, bez wypełniaczy — wstanie rano bez bólu.",
-    price: "89,00 zł",
-    priceNumeric: 89,
-    weight: "250 g / ok. 3 miesiące",
-    healthTags: ["joints"],
-    isPremiumVerified: true,
-    hasVetEndorsement: true,
-  },
-  {
-    id: 2,
-    slug: "karma-premium-losos-norweski-kot",
-    name: "Karma premium z norweskiego łososia",
-    description:
-      "Pełnowartościowy posiłek bez kompromisów w składzie. Kwasy omega-3 dla zdrowej sierści i elastycznej skóry kota.",
-    price: "64,00 zł",
-    priceNumeric: 64,
-    weight: "400 g",
-    healthTags: ["coat", "gut"],
-    isPremiumVerified: true,
-    hasVetEndorsement: true,
-  },
-  {
-    id: 3,
-    slug: "probiotyk-jelitowy-wrazliwe-koty",
-    name: "Probiotyk jelitowy dla wrażliwych kotów",
-    description:
-      "Przywraca równowagę mikrobioty w 14 dni. Bezpieczny po antybiotykoterapii i przy zmianie diety.",
-    price: "72,00 zł",
-    priceNumeric: 72,
-    weight: "60 kapsułek",
-    healthTags: ["gut"],
-    isPremiumVerified: false,
-    hasVetEndorsement: true,
-  },
-];
+function fmtPrice(n: number) {
+  return n.toFixed(2).replace(".", ",") + " zł"
+}
 
-export function ProductListing() {
+export async function ProductListing() {
+  let products: Awaited<ReturnType<typeof getProducts>> = []
+
+  try {
+    products = await getProducts({ limit: 6 })
+  } catch {
+    return null
+  }
+
+  if (!products || products.length === 0) return null
+
   return (
     <section id="produkty" className="bg-canvas">
       <div className="mx-auto max-w-editorial px-6 py-20 md:px-12 md:py-28">
@@ -55,15 +28,14 @@ export function ProductListing() {
           <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
             <div className="md:col-span-7">
               <h2 className="font-serif font-normal leading-editorial text-ink text-4xl md:text-5xl">
-                Tylko produkty z weryfikacją
-                <br />
-                weterynaryjną. Żadnych kompromisów ze składem.
+                Tylko produkty z weryfikacją<br />
+                składu. Żadnych kompromisów.
               </h2>
             </div>
             <div className="md:col-span-4 md:col-start-9 md:flex md:items-end">
               <p className="text-base leading-body text-ink-muted">
                 Każdy produkt w naszym sklepie przeszedł
-                weryfikację składu przez weterynarza.
+                analizę składu przez Kuratorów marki.
                 Zamawiasz z wiedzą, że to naprawdę bezpieczne.
               </p>
             </div>
@@ -73,11 +45,23 @@ export function ProductListing() {
         {/* Product grid */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
-            <ProductCard key={product.id} {...product} />
+            <ProductCard
+              key={product.id}
+              id={product.id}
+              slug={product.slug}
+              name={product.name_seo}
+              description={product.description_seo ?? ""}
+              price={fmtPrice(product.price_sell)}
+              priceNumeric={product.price_sell}
+              weight={product.usage_days ? `${product.usage_days} porcji` : ""}
+              healthTags={product.health_tags}
+              isPremiumVerified={product.is_premium_verified}
+              hasExpertEndorsement={(product.expert_tags ?? []).length > 0}
+            />
           ))}
         </div>
 
       </div>
     </section>
-  );
+  )
 }

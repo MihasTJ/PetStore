@@ -22,10 +22,9 @@ export async function getProducts(filters: ProductFilters = {}) {
   let query = supabase
     .from("products")
     .select(
-      `*, product_certificates(*), product_endorsements(*), categories(name, slug)`
+      `*, categories(name, slug)`
     )
     .eq("is_active", true)
-    .eq("status", "active")
     .order("created_at", { ascending: false });
 
   if (filters.is_premium_verified) {
@@ -57,20 +56,25 @@ export async function getProducts(filters: ProductFilters = {}) {
   return data;
 }
 
-export async function getProductBySlug(slug: string): Promise<ProductWithRelations | null> {
+export async function getProductBySlug(
+  slug: string,
+  options: { preview?: boolean } = {}
+): Promise<ProductWithRelations | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
-    .select(
-      `*, product_certificates(*), product_endorsements(*), product_ingredients(*)`
-    )
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .single();
+    .select(`*, product_ingredients(*)`)
+    .eq("slug", slug);
+
+  if (!options.preview) {
+    query = query.eq("is_active", true);
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
-    if (error.code === "PGRST116") return null; // not found
+    if (error.code === "PGRST116") return null;
     throw error;
   }
 
