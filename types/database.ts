@@ -443,6 +443,7 @@ export type Database = {
       }
       product_ingredients: {
         Row: {
+          amount: string | null
           created_at: string
           id: string
           ingredient_description: string | null
@@ -452,6 +453,7 @@ export type Database = {
           product_id: string
         }
         Insert: {
+          amount?: string | null
           created_at?: string
           id?: string
           ingredient_description?: string | null
@@ -461,6 +463,7 @@ export type Database = {
           product_id: string
         }
         Update: {
+          amount?: string | null
           created_at?: string
           id?: string
           ingredient_description?: string | null
@@ -484,8 +487,10 @@ export type Database = {
           breed_tags: string[]
           category_id: string | null
           created_at: string
+          daily_price_pln: number | null
           description_original: string | null
           description_seo: string | null
+          expert_tags: string[]
           external_id: string | null
           health_tags: string[]
           id: string
@@ -498,19 +503,24 @@ export type Database = {
           name_seo: string
           price_original: number
           price_sell: number
+          quality_badge_ids: string[]
+          review_count: number
           slug: string
           species: string[]
           status: string
           stock: number
           supplier_id: string | null
           updated_at: string
+          usage_days: number | null
         }
         Insert: {
           breed_tags?: string[]
           category_id?: string | null
           created_at?: string
+          daily_price_pln?: number | null
           description_original?: string | null
           description_seo?: string | null
+          expert_tags?: string[]
           external_id?: string | null
           health_tags?: string[]
           id?: string
@@ -523,19 +533,24 @@ export type Database = {
           name_seo: string
           price_original: number
           price_sell: number
+          quality_badge_ids?: string[]
+          review_count?: number
           slug: string
           species?: string[]
           status?: string
           stock?: number
           supplier_id?: string | null
           updated_at?: string
+          usage_days?: number | null
         }
         Update: {
           breed_tags?: string[]
           category_id?: string | null
           created_at?: string
+          daily_price_pln?: number | null
           description_original?: string | null
           description_seo?: string | null
+          expert_tags?: string[]
           external_id?: string | null
           health_tags?: string[]
           id?: string
@@ -548,12 +563,15 @@ export type Database = {
           name_seo?: string
           price_original?: number
           price_sell?: number
+          quality_badge_ids?: string[]
+          review_count?: number
           slug?: string
           species?: string[]
           status?: string
           stock?: number
           supplier_id?: string | null
           updated_at?: string
+          usage_days?: number | null
         }
         Relationships: [
           {
@@ -687,6 +705,162 @@ export type Database = {
           is_active?: boolean
           last_sync_at?: string | null
           name?: string
+        }
+        Relationships: []
+      }
+      brand_experts: {
+        Row: {
+          id: string
+          name: string
+          role: string
+          description: string | null
+          specialization_tags: string[]
+          ai_generated_avatar_url: string | null
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          name: string
+          role: string
+          description?: string | null
+          specialization_tags?: string[]
+          ai_generated_avatar_url?: string | null
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          name?: string
+          role?: string
+          description?: string | null
+          specialization_tags?: string[]
+          ai_generated_avatar_url?: string | null
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      expert_endorsements: {
+        Row: {
+          id: string
+          product_id: string
+          expert_id: string
+          quote: string
+          validation_date: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          expert_id: string
+          quote: string
+          validation_date?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          expert_id?: string
+          quote?: string
+          validation_date?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_endorsements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_endorsements_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "brand_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quality_badges: {
+        Row: {
+          id: string
+          code: string
+          name: string
+          description: string | null
+          icon_url: string | null
+          criteria_md: string | null
+        }
+        Insert: {
+          id?: string
+          code: string
+          name: string
+          description?: string | null
+          icon_url?: string | null
+          criteria_md?: string | null
+        }
+        Update: {
+          id?: string
+          code?: string
+          name?: string
+          description?: string | null
+          icon_url?: string | null
+          criteria_md?: string | null
+        }
+        Relationships: []
+      }
+      product_quality_badges: {
+        Row: {
+          id: string
+          product_id: string
+          badge_id: string
+          validated_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          badge_id: string
+          validated_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          badge_id?: string
+          validated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_quality_badges_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_quality_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "quality_badges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_content: {
+        Row: {
+          id: string
+          key: string
+          value: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          value: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -870,14 +1044,16 @@ export type Order = Database["public"]["Tables"]["orders"]["Row"]
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"]
 export type Review = Database["public"]["Tables"]["reviews"]["Row"]
 export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"]
+export type BrandExpert = Database["public"]["Tables"]["brand_experts"]["Row"]
+export type ExpertEndorsement = Database["public"]["Tables"]["expert_endorsements"]["Row"]
+export type QualityBadge = Database["public"]["Tables"]["quality_badges"]["Row"]
+export type SiteContent = Database["public"]["Tables"]["site_content"]["Row"]
 
 export type OrderWithItems = Order & {
   order_items: (OrderItem & { product_snapshot: { name: string; weight?: string } })[]
 }
 
 export type ProductWithRelations = Product & {
-  product_certificates: ProductCertificate[]
-  product_endorsements: ProductEndorsement[]
   product_ingredients: ProductIngredient[]
 }
 
