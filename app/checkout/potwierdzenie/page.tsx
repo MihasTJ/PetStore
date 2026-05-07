@@ -105,7 +105,7 @@ export default async function PotwierdzeniePage({
             Wróć do sklepu
           </Link>
         </div>
-        <PendingPoller />
+        <PendingPoller orderId={order_id ?? ""} />
       </main>
     );
   }

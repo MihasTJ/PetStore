@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import Script from "next/script";
 import { useCart } from "@/lib/cart";
 import { createClient } from "@/lib/supabase/client";
 import { createOrder } from "@/lib/actions/checkout";
@@ -15,6 +16,7 @@ import {
   Check,
 } from "lucide-react";
 import Link from "next/link";
+
 
 type DeliveryMethod = "inpost" | "dpd";
 
@@ -65,6 +67,11 @@ export default function CheckoutPage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [quizPetName, setQuizPetName] = useState<string | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<{
+    name: string;
+    address: string;
+    city: string;
+  } | null>(null);
 
   useEffect(() => {
     createClient().auth.getUser()
@@ -74,7 +81,39 @@ export default function CheckoutPage() {
       const stored = localStorage.getItem("quiz_pet_name");
       if (stored) setQuizPetName(stored);
     } catch {}
+
+    // Load InPost Geowidget styles
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://geowidget.inpost.pl/inpost-geowidget.css";
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
   }, []);
+
+  // Listen for paczkomat selection from InPost Geowidget
+  useEffect(() => {
+    if (delivery !== "inpost") {
+      setSelectedPoint(null);
+      return;
+    }
+    const widget = document.getElementById("inpost-geowidget");
+    if (!widget) return;
+
+    const handlePoint = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const addr = detail.address;
+      setSelectedPoint({
+        name: detail.name ?? "",
+        address: typeof addr === "object" && addr !== null
+          ? (addr.line1 ?? "")
+          : (addr ?? ""),
+        city: typeof addr === "object" && addr !== null ? (addr.city ?? "") : "",
+      });
+    };
+
+    widget.addEventListener("point", handlePoint);
+    return () => widget.removeEventListener("point", handlePoint);
+  }, [delivery]);
 
   const [form, setForm] = useState({
     email: "", firstName: "", lastName: "",
@@ -119,15 +158,16 @@ export default function CheckoutPage() {
       email: form.email,
       firstName: form.firstName,
       lastName: form.lastName,
-      street: form.street,
-      apt: form.apt,
-      postalCode: form.postalCode,
-      city: form.city,
+      street: delivery === "inpost" ? (selectedPoint?.address ?? "") : form.street,
+      apt: delivery === "inpost" ? "" : form.apt,
+      postalCode: delivery === "inpost" ? "" : form.postalCode,
+      city: delivery === "inpost" ? (selectedPoint?.city ?? "") : form.city,
       nip: form.nip,
       delivery,
       premiumPackaging: hasPremiumPackaging,
       packagingNote,
       petName: quizPetName ?? undefined,
+      inpostPoint: delivery === "inpost" && selectedPoint ? selectedPoint : undefined,
       items: items.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
     });
 
@@ -144,6 +184,7 @@ export default function CheckoutPage() {
 
   return (
     <main className="bg-canvas">
+      <Script src="https://geowidget.inpost.pl/inpost-geowidget.js" strategy="lazyOnload" />
       <div className="mx-auto max-w-shell px-6 pt-28 pb-20 md:px-12 md:pt-32 md:pb-28">
 
         {/* Breadcrumb */}
@@ -190,24 +231,54 @@ export default function CheckoutPage() {
               {/* Sekcja 2: Adres dostawy */}
               <section>
                 <SectionHeader icon={<MapPin size={16} />} title="Adres dostawy" />
-                <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-6">
-                  <Field
-                    label="Ulica i numer" id="street" placeholder="ul. Słoneczna 12" required
-                    value={form.street} onChange={set("street")} className="sm:col-span-4"
-                  />
-                  <Field
-                    label="Mieszkanie" id="apt" placeholder="/ 3A"
-                    value={form.apt} onChange={set("apt")} className="sm:col-span-2"
-                  />
-                  <Field
-                    label="Kod pocztowy" id="postalCode" placeholder="00-000" required
-                    value={form.postalCode} onChange={set("postalCode")} className="sm:col-span-2"
-                  />
-                  <Field
-                    label="Miasto" id="city" placeholder="Warszawa" required
-                    value={form.city} onChange={set("city")} className="sm:col-span-4"
-                  />
-                </div>
+
+                {delivery === "inpost" ? (
+                  <div className="mt-5">
+                    <div className="rounded-card-sm border border-border-warm overflow-hidden" style={{ minHeight: 480 }}>
+                      {React.createElement("inpost-geowidget", {
+                        id: "inpost-geowidget",
+                        token: process.env.NEXT_PUBLIC_INPOST_GEOWIDGET_TOKEN ?? "",
+                        language: "pl",
+                        config: "parcelcollect",
+                        style: { width: "100%", minHeight: 480, display: "block" },
+                      })}
+                    </div>
+                    {selectedPoint ? (
+                      <div className="mt-4 flex items-start gap-3 rounded-field border border-moss/20 bg-moss/5 px-4 py-3">
+                        <Check size={15} className="shrink-0 mt-0.5 text-moss" strokeWidth={2} />
+                        <div>
+                          <p className="text-sm font-medium text-ink">{selectedPoint.name}</p>
+                          <p className="text-xs text-ink-muted mt-0.5">
+                            {selectedPoint.address}{selectedPoint.city ? `, ${selectedPoint.city}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-ink-muted text-center">
+                        Wybierz paczkomat na mapie powyżej
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-6">
+                    <Field
+                      label="Ulica i numer" id="street" placeholder="ul. Słoneczna 12" required
+                      value={form.street} onChange={set("street")} className="sm:col-span-4"
+                    />
+                    <Field
+                      label="Mieszkanie" id="apt" placeholder="/ 3A"
+                      value={form.apt} onChange={set("apt")} className="sm:col-span-2"
+                    />
+                    <Field
+                      label="Kod pocztowy" id="postalCode" placeholder="00-000" required
+                      value={form.postalCode} onChange={set("postalCode")} className="sm:col-span-2"
+                    />
+                    <Field
+                      label="Miasto" id="city" placeholder="Warszawa" required
+                      value={form.city} onChange={set("city")} className="sm:col-span-4"
+                    />
+                  </div>
+                )}
               </section>
 
               {/* Sekcja 3: Metoda dostawy */}
@@ -430,11 +501,19 @@ export default function CheckoutPage() {
                   </p>
                 )}
 
+                {/* Gwarancja zwrotu — bezpośrednio nad przyciskiem, widoczna na mobile */}
+                <div className="mt-6 flex items-start gap-2.5 rounded-field border border-moss/20 bg-moss/5 px-4 py-3">
+                  <ShieldCheck size={15} className="shrink-0 mt-0.5 text-moss" strokeWidth={1.5} />
+                  <span className="text-xs leading-body text-ink-muted">
+                    Twój pupil nie polubił produktu? Zwrot bez pytań w ciągu 14 dni.
+                  </span>
+                </div>
+
                 {/* CTA */}
                 <button
                   type="submit"
-                  disabled={!agreed || submitting}
-                  className="mt-6 w-full flex items-center justify-center gap-2 rounded-button bg-terracotta px-6 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  disabled={!agreed || submitting || (delivery === "inpost" && !selectedPoint)}
+                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-button bg-terracotta px-6 py-4 text-base font-medium text-card-warm hover:bg-terracotta-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
                 >
                   {submitting ? "Przekierowuję do płatności…" : "Zamów dla pupila"}
                 </button>

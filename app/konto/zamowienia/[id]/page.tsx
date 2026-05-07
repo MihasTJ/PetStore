@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
   Package,
@@ -7,110 +7,64 @@ import {
   MapPin,
   ShieldCheck,
   CreditCard,
-  FileText,
   Check,
+  Clock,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 
-// Docelowo: SELECT z orders JOIN order_items WHERE id = params.id AND customer_id = auth.uid()
-const MOCK_ORDERS: Record<string, Order> = {
-  "NB-2847": {
-    id: "NB-2847",
-    date: "28 kwietnia 2026",
-    deliveredAt: "30 kwietnia 2026",
-    status: "delivered",
-    statusLabel: "Dostarczono",
-    paymentMethod: "BLIK",
-    shipping: "InPost Paczkomat",
-    shippingCost: "13,99 zł",
-    packagingPremium: false,
-    address: {
-      name: "Anna Kowalska",
-      line1: "ul. Lipowa 12/4",
-      city: "00-001 Warszawa",
-      point: "WAW43N — Galeria Mokotów, parter",
-    },
-    items: [
-      {
-        name: "Suplement na stawy Senior",
-        variant: "90 kapsułek",
-        qty: 1,
-        price: "175,00 zł",
-        slug: "suplement-stawy-senior",
-      },
-    ],
-    subtotal: "175,00 zł",
-    total: "189,00 zł",
-    hasHealthReport: true,
-  },
-  "NB-2614": {
-    id: "NB-2614",
-    date: "2 marca 2026",
-    deliveredAt: "4 marca 2026",
-    status: "delivered",
-    statusLabel: "Dostarczono",
-    paymentMethod: "Karta Visa",
-    shipping: "DPD Kurier",
-    shippingCost: "14,99 zł",
-    packagingPremium: true,
-    address: {
-      name: "Anna Kowalska",
-      line1: "ul. Lipowa 12/4",
-      city: "00-001 Warszawa",
-      point: null,
-    },
-    items: [
-      {
-        name: "Karma premium z łososiem",
-        variant: "2 kg",
-        qty: 1,
-        price: "109,00 zł",
-        slug: "karma-losos",
-      },
-      {
-        name: "Przysmaki dentystyczne",
-        variant: "150 g",
-        qty: 1,
-        price: "25,00 zł",
-        slug: "przysmaki-dentystyczne",
-      },
-    ],
-    subtotal: "134,00 zł",
-    total: "148,99 zł",
-    hasHealthReport: false,
-  },
+function fmt(n: number) {
+  return n.toFixed(2).replace(".", ",") + " zł";
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("pl-PL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pending:    "Oczekuje na płatność",
+  paid:       "Opłacono",
+  processing: "W realizacji",
+  shipped:    "Wysłano",
+  delivered:  "Dostarczono",
+  cancelled:  "Anulowano",
+  refunded:   "Zwrócono",
 };
 
-type Order = {
-  id: string;
-  date: string;
-  deliveredAt: string;
-  status: string;
-  statusLabel: string;
-  paymentMethod: string;
-  shipping: string;
-  shippingCost: string;
-  packagingPremium: boolean;
-  address: { name: string; line1: string; city: string; point: string | null };
-  items: { name: string; variant: string; qty: number; price: string; slug: string }[];
-  subtotal: string;
-  total: string;
-  hasHealthReport: boolean;
+const SHIPPING_LABELS: Record<string, string> = {
+  inpost: "InPost Paczkomat 24h",
+  dpd:    "Kurier DPD",
 };
 
-const TIMELINE = [
+type TimelineStep = { label: string; key: string };
+const TIMELINE: TimelineStep[] = [
   { label: "Zamówienie przyjęte", key: "placed" },
   { label: "Płatność potwierdzona", key: "paid" },
   { label: "Przekazano do wysyłki", key: "shipped" },
   { label: "Dostarczono", key: "delivered" },
 ];
 
-export async function generateStaticParams() {
-  return Object.keys(MOCK_ORDERS).map((id) => ({ id }));
+function timelineIndex(status: string): number {
+  switch (status) {
+    case "pending":    return 0;
+    case "paid":       return 1;
+    case "processing": return 1;
+    case "shipped":    return 2;
+    case "delivered":  return 3;
+    default:           return 0;
+  }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  return { title: `Zamówienie ${id} — Nobile` };
+  return { title: `Zamówienie #${id.slice(0, 8).toUpperCase()} — Nobile` };
 }
 
 export default async function ZamowieniePage({
@@ -119,8 +73,39 @@ export default async function ZamowieniePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const order = MOCK_ORDERS[id];
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/konto/logowanie");
+
+  const { data: order } = await supabase
+    .from("orders")
+    .select("*, order_items(*, products(slug, name_seo))")
+    .eq("id", id)
+    .eq("customer_id", user.id)
+    .single();
+
   if (!order) notFound();
+
+  const addr = order.shipping_address as Record<string, string> | null;
+  const orderNumber = order.id.slice(0, 8).toUpperCase();
+  const doneIndex = timelineIndex(order.status);
+
+  type OrderItem = {
+    id: string;
+    quantity: number;
+    price_at_purchase: number;
+    product_snapshot: { name?: string; price?: number } | null;
+    products: { slug: string; name_seo: string } | null;
+  };
+  const items = (order.order_items ?? []) as OrderItem[];
+
+  const subtotal = items.reduce(
+    (sum, i) => sum + i.price_at_purchase * i.quantity,
+    0
+  );
 
   return (
     <main className="min-h-screen bg-canvas">
@@ -138,23 +123,21 @@ export default async function ZamowieniePage({
         {/* Nagłówek */}
         <div className="mb-10">
           <p className="mb-4 text-xs font-medium tracking-eyebrow uppercase text-ink-subtle">
-            Zamówienie {order.id}
+            Zamówienie #{orderNumber}
           </p>
           <h1 className="font-serif font-normal text-4xl md:text-[2.75rem] text-ink leading-editorial mb-3">
             Doskonały wybór dla Twojego pupila.
           </h1>
           <p className="text-base leading-body text-ink-muted">
-            Zamówione {order.date} · dostarczone {order.deliveredAt}
+            Zamówione {formatDate(order.created_at)}
           </p>
         </div>
 
-        {/* Timeline */}
-        {/* Mobile: pionowy, Desktop: poziomy */}
+        {/* Timeline — poziomy md+ */}
         <div className="mb-10">
-          {/* Poziomy — md+ */}
           <div className="hidden md:flex items-center gap-0">
             {TIMELINE.map((step, i) => {
-              const done = true;
+              const done = i <= doneIndex;
               const isLast = i === TIMELINE.length - 1;
               return (
                 <div key={step.key} className="flex items-center flex-1 last:flex-none">
@@ -164,7 +147,11 @@ export default async function ZamowieniePage({
                         done ? "bg-moss" : "bg-border-warm"
                       }`}
                     >
-                      <Check size={11} strokeWidth={2.5} className="text-card-warm" />
+                      {done ? (
+                        <Check size={11} strokeWidth={2.5} className="text-card-warm" />
+                      ) : (
+                        <Clock size={11} strokeWidth={2} className="text-ink-subtle" />
+                      )}
                     </div>
                     <span className="text-[10px] text-ink-subtle text-center leading-tight max-w-[72px]">
                       {step.label}
@@ -183,7 +170,7 @@ export default async function ZamowieniePage({
           {/* Pionowy — do md */}
           <div className="flex flex-col gap-0 md:hidden">
             {TIMELINE.map((step, i) => {
-              const done = true;
+              const done = i <= doneIndex;
               const isLast = i === TIMELINE.length - 1;
               return (
                 <div key={step.key} className="flex items-start gap-4">
@@ -193,7 +180,11 @@ export default async function ZamowieniePage({
                         done ? "bg-moss" : "bg-border-warm"
                       }`}
                     >
-                      <Check size={11} strokeWidth={2.5} className="text-card-warm" />
+                      {done ? (
+                        <Check size={11} strokeWidth={2.5} className="text-card-warm" />
+                      ) : (
+                        <Clock size={11} strokeWidth={2} className="text-ink-subtle" />
+                      )}
                     </div>
                     {!isLast && (
                       <div
@@ -201,7 +192,11 @@ export default async function ZamowieniePage({
                       />
                     )}
                   </div>
-                  <p className={`text-sm leading-body pb-5 ${done ? "text-ink-muted" : "text-ink-subtle"} ${isLast ? "pb-0" : ""}`}>
+                  <p
+                    className={`text-sm leading-body pb-5 ${
+                      done ? "text-ink-muted" : "text-ink-subtle"
+                    } ${isLast ? "pb-0" : ""}`}
+                  >
                     {step.label}
                   </p>
                 </div>
@@ -218,44 +213,58 @@ export default async function ZamowieniePage({
                 Zamówione produkty
               </p>
             </div>
-            {order.items.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between gap-4 px-6 py-5 border-b border-border-warm last:border-0"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="shrink-0 w-10 h-10 rounded-field bg-warm-island flex items-center justify-center">
-                    <Package size={16} strokeWidth={1.5} className="text-ink-muted" />
+
+            {items.map((item) => {
+              const name =
+                (item.product_snapshot?.name) ??
+                item.products?.name_seo ??
+                "Produkt";
+              const slug = item.products?.slug;
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-4 px-6 py-5 border-b border-border-warm last:border-0"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="shrink-0 w-10 h-10 rounded-field bg-warm-island flex items-center justify-center">
+                      <Package size={16} strokeWidth={1.5} className="text-ink-muted" />
+                    </div>
+                    <div className="min-w-0">
+                      {slug ? (
+                        <Link
+                          href={`/products/${slug}`}
+                          className="text-sm font-medium text-ink hover:text-terracotta underline-offset-2 hover:underline transition-colors truncate block"
+                        >
+                          {name}
+                        </Link>
+                      ) : (
+                        <p className="text-sm font-medium text-ink truncate">{name}</p>
+                      )}
+                      <p className="text-xs text-ink-muted mt-0.5">
+                        szt. {item.quantity}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <Link
-                      href={`/products/${item.slug}`}
-                      className="text-sm font-medium text-ink hover:text-terracotta underline-offset-2 hover:underline transition-colors cursor-pointer truncate block"
-                    >
-                      {item.name}
-                    </Link>
-                    <p className="text-xs text-ink-muted mt-0.5">
-                      {item.variant} · szt. {item.qty}
-                    </p>
-                  </div>
+                  <p className="shrink-0 text-sm font-medium text-ink font-tnum">
+                    {fmt(item.price_at_purchase * item.quantity)}
+                  </p>
                 </div>
-                <p className="shrink-0 text-sm font-medium text-ink font-tnum">
-                  {item.price}
-                </p>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Podsumowanie kosztów */}
             <div className="px-6 py-5 bg-warm-island/40 space-y-2.5">
               <div className="flex justify-between text-sm text-ink-muted">
                 <span>Produkty</span>
-                <span className="font-tnum">{order.subtotal}</span>
+                <span className="font-tnum">{fmt(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm text-ink-muted">
-                <span>Dostawa ({order.shipping})</span>
-                <span className="font-tnum">{order.shippingCost}</span>
+                <span>
+                  Dostawa ({SHIPPING_LABELS[order.shipping_method] ?? order.shipping_method})
+                </span>
+                <span className="font-tnum">{fmt(order.shipping_cost)}</span>
               </div>
-              {order.packagingPremium && (
+              {order.premium_packaging && (
                 <div className="flex justify-between text-sm text-ink-muted">
                   <span>Opakowanie premium</span>
                   <span className="font-tnum">19,00 zł</span>
@@ -263,7 +272,7 @@ export default async function ZamowieniePage({
               )}
               <div className="flex justify-between text-sm font-medium text-ink pt-2 border-t border-border-warm">
                 <span>Łącznie</span>
-                <span className="font-tnum">{order.total}</span>
+                <span className="font-tnum">{fmt(order.total_amount)}</span>
               </div>
             </div>
           </div>
@@ -279,11 +288,20 @@ export default async function ZamowieniePage({
                 Adres dostawy
               </p>
             </div>
-            <p className="text-sm font-medium text-ink">{order.address.name}</p>
-            <p className="text-sm text-ink-muted mt-0.5">{order.address.line1}</p>
-            <p className="text-sm text-ink-muted">{order.address.city}</p>
-            {order.address.point && (
-              <p className="text-xs text-ink-subtle mt-2">{order.address.point}</p>
+            {addr ? (
+              <>
+                <p className="text-sm font-medium text-ink">
+                  {[addr.first_name, addr.last_name].filter(Boolean).join(" ")}
+                </p>
+                <p className="text-sm text-ink-muted mt-0.5">
+                  {addr.street}{addr.apt ? ` / ${addr.apt}` : ""}
+                </p>
+                <p className="text-sm text-ink-muted">
+                  {addr.postal_code} {addr.city}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-ink-muted">Brak danych adresowych</p>
             )}
           </div>
 
@@ -295,57 +313,38 @@ export default async function ZamowieniePage({
                 Płatność
               </p>
             </div>
-            <p className="text-sm font-medium text-ink">{order.paymentMethod}</p>
+            <p className="text-sm font-medium text-ink">
+              {STATUS_LABELS[order.payment_status] ?? order.payment_status}
+            </p>
             <div className="flex items-center gap-1.5 mt-3">
               <ShieldCheck size={13} strokeWidth={1.5} className="text-moss" />
-              <p className="text-xs text-ink-muted">Płatność zrealizowana</p>
+              <p className="text-xs text-ink-muted">
+                {order.payment_status === "paid" ? "Płatność zrealizowana" : "Oczekuje na potwierdzenie"}
+              </p>
             </div>
             <div className="flex items-center gap-2 mt-4">
               <Truck size={13} strokeWidth={1.5} className="text-ink-subtle" />
-              <p className="text-xs text-ink-muted">{order.shipping}</p>
+              <p className="text-xs text-ink-muted">
+                {SHIPPING_LABELS[order.shipping_method] ?? order.shipping_method}
+              </p>
             </div>
           </div>
         </section>
 
-        {/* Raport zdrowotny */}
-        {order.hasHealthReport && (
-          <section className="mb-6 bg-tech-island rounded-card p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium tracking-eyebrow uppercase text-ink-subtle mb-1.5">
-                  Raport zdrowotny
-                </p>
-                <p className="text-sm leading-body text-ink-muted">
-                  Do tego zamówienia wygenerowaliśmy spersonalizowany raport zdrowotny
-                  dla Zuzi z planem suplementacji.
-                </p>
-              </div>
-              <Link
-                href="/konto"
-                className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-hover transition-colors mt-0.5"
-              >
-                <FileText size={13} strokeWidth={1.5} />
-                Pobierz PDF
-              </Link>
-            </div>
-          </section>
-        )}
-
         {/* Akcje */}
         <div className="flex flex-wrap gap-3">
-          <a
-            href="#"
-            className="inline-flex items-center gap-2 rounded-button border border-border-warm px-6 py-3 text-sm font-medium text-ink hover:border-terracotta/40 transition-colors cursor-pointer"
+          <Link
+            href="/konto"
+            className="inline-flex items-center gap-2 rounded-button border border-border-warm px-6 py-3 text-sm font-medium text-ink hover:border-terracotta/40 transition-colors"
           >
-            <FileText size={14} strokeWidth={1.5} />
-            Pobierz fakturę
-          </a>
-          <a
-            href="#"
-            className="inline-flex items-center gap-2 rounded-button border border-border-warm px-6 py-3 text-sm font-medium text-ink hover:border-terracotta/40 transition-colors cursor-pointer"
+            Wróć do konta
+          </Link>
+          <Link
+            href="/produkty"
+            className="inline-flex items-center gap-2 rounded-button border border-border-warm px-6 py-3 text-sm font-medium text-ink hover:border-terracotta/40 transition-colors"
           >
-            Zgłoś zwrot
-          </a>
+            Przeglądaj produkty
+          </Link>
         </div>
 
       </div>

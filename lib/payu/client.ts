@@ -61,6 +61,17 @@ export async function createPayuOrder(
   throw new Error(`PayU createOrder failed (${res.status}): ${text}`);
 }
 
+export async function getPayuOrderStatus(payuOrderId: string): Promise<import("./types").PayuOrderStatus | null> {
+  const token = await getToken();
+  const res = await fetch(`${PAYU_BASE}/api/v2_1/orders/${payuOrderId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const json = await res.json() as { orders?: Array<{ status: import("./types").PayuOrderStatus }> };
+  return json.orders?.[0]?.status ?? null;
+}
+
 // Validates the OpenPayU-Signature header sent with PayU webhooks.
 // Format: "algorithm=MD5;signature=HASH;sender=SENDER"
 export function verifyPayuSignature(body: string, header: string): boolean {

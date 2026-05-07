@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "missing order" }, { status: 400 });
   }
 
-  const { createClient } = await import("@/lib/supabase/server");
-  const supabase = await createClient();
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
   const orderStatus = ORDER_STATUS[order.status] ?? "pending";
   const paymentStatus = PAYMENT_STATUS[order.status] ?? "pending";
 

@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createPayuOrder } from "@/lib/payu/client";
+import { createPayuOrder, getPayuOrderStatus } from "@/lib/payu/client";
 import type { CartItem } from "@/lib/cart";
 
 export interface CheckoutFormData {
@@ -20,6 +20,7 @@ export interface CheckoutFormData {
   premiumPackaging: boolean;
   packagingNote: string;
   petName?: string;
+  inpostPoint?: { name: string; address: string; city: string };
   items: Pick<CartItem, "id" | "name" | "price" | "quantity">[];
 }
 
@@ -108,10 +109,20 @@ export async function createOrder(
         email: data.email,
         first_name: data.firstName,
         last_name: data.lastName,
-        street: data.street,
-        apt: data.apt || null,
-        postal_code: data.postalCode,
-        city: data.city,
+        ...(data.delivery === "inpost" && data.inpostPoint
+          ? {
+              point_name: data.inpostPoint.name,
+              street: data.inpostPoint.address,
+              city: data.inpostPoint.city,
+              apt: null,
+              postal_code: null,
+            }
+          : {
+              street: data.street,
+              apt: data.apt || null,
+              postal_code: data.postalCode,
+              city: data.city,
+            }),
       },
       premium_packaging: data.premiumPackaging,
       packaging_note: data.packagingNote || null,
@@ -217,4 +228,52 @@ export async function createOrder(
         "Nie udało się połączyć z systemem płatności. Spróbuj ponownie lub skontaktuj się z obsługą.",
     };
   }
+}
+
+// Called by PendingPoller every 4s: checks PayU API directly and syncs DB.
+// Falls back gracefully if PayU is unreachable or payment_id not yet set.
+export async function pollOrderStatus(
+  orderId: string
+): Promise<"pending" | "paid" | "failed"> {
+  const supabase = createAdminClient();
+
+  const { data } = await supabase
+    .from("orders")
+    .select("payment_status, payment_id")
+    .eq("id", orderId)
+    .single();
+
+  if (!data) return "failed";
+
+  const dbStatus = data.payment_status as string | null;
+  if (dbStatus === "paid") return "paid";
+  if (dbStatus === "failed") return "failed";
+
+  // Still pending — ask PayU directly
+  const paymentId = data.payment_id as string | null;
+  if (!paymentId) return "pending";
+
+  const payuStatus = await getPayuOrderStatus(paymentId).catch(() => null);
+
+  if (payuStatus === "COMPLETED") {
+    await supabase.rpc("update_order_payment", {
+      p_order_id: orderId,
+      p_payu_id: paymentId,
+      p_order_status: "paid",
+      p_payment_status: "paid",
+    });
+    return "paid";
+  }
+
+  if (payuStatus === "CANCELED" || payuStatus === "REJECTED") {
+    await supabase.rpc("update_order_payment", {
+      p_order_id: orderId,
+      p_payu_id: paymentId,
+      p_order_status: "cancelled",
+      p_payment_status: "failed",
+    });
+    return "failed";
+  }
+
+  return "pending";
 }
