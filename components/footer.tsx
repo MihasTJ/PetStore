@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { ShieldCheck, Award, Stethoscope } from "lucide-react";
+import { Leaf, BadgeCheck, FileCheck } from "lucide-react";
 
 const shopLinks = [
   { label: "Produkty", href: "/produkty" },
   { label: "Dlaczego Premium?", href: "/dlaczego-premium" },
   { label: "AI Quiz zdrowotny", href: "/quiz" },
   { label: "Nasi eksperci", href: "/eksperci" },
-  { label: "Certyfikaty", href: "/certyfikaty" },
+  { label: "Standardy jakości", href: "/standardy-jakosci" },
 ];
 
 const infoLinks = [
@@ -24,9 +24,9 @@ const accountLinks = [
 ];
 
 const trustSignals = [
-  { icon: ShieldCheck, label: "Skład weryfikowany przez weterynarzy" },
-  { icon: Award, label: "Certyfikaty weterynaryjne widoczne przy każdym produkcie" },
-  { icon: Stethoscope, label: "Polecane przez specjalistów, sprawdzone na składnikach" },
+  { icon: Leaf, label: "Standard PureCare — bez konserwantów i wypełniaczy" },
+  { icon: BadgeCheck, label: "Wybór Ekspertów — rekomendacja Panelu Kuratorów" },
+  { icon: FileCheck, label: "Atest Czystego Składu — każdy składnik z opisem" },
 ];
 
 export function Footer() {
@@ -117,7 +117,7 @@ export function Footer() {
         <div className="mt-14 pt-8 border-t border-border-warm grid grid-cols-1 sm:grid-cols-3 gap-5">
           {trustSignals.map(({ icon: Icon, label }) => (
             <div key={label} className="flex items-center gap-3">
-              <div className="shrink-0 w-8 h-8 rounded-tag bg-moss/9 flex items-center justify-center">
+              <div className="shrink-0 w-8 h-8 rounded-tag bg-moss/10 flex items-center justify-center">
                 <Icon size={15} className="text-moss" />
               </div>
               <span className="text-xs text-ink-muted leading-snug">{label}</span>
