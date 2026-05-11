@@ -20,11 +20,13 @@ function calcAgeLabel(birthDate: string | null): string {
   return years === 1 ? "1 rok" : `${years} lata`;
 }
 
-const SPECIES_OPTIONS = [
+type Species = "pies" | "kot" | "inny";
+
+const SPECIES_OPTIONS: { value: Species; label: string }[] = [
   { value: "pies", label: "Pies" },
   { value: "kot", label: "Kot" },
   { value: "inny", label: "Inny pupil" },
-] as const;
+];
 
 const inputClass =
   "w-full rounded-field border border-border-warm bg-canvas px-3 py-2 text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:border-terracotta/60 focus:ring-2 focus:ring-terracotta/10 transition";
@@ -43,7 +45,7 @@ export function PetProfileEditor({ pet }: Props) {
 
   const [persisted, setPersisted] = useState({
     petName: pet.pet_name,
-    species: pet.species,
+    species: pet.species as Species,
     breed: pet.breed ?? "",
     birthDate: pet.birth_date ?? "",
     weightKg: pet.weight_kg?.toString() ?? "",
