@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# lib/data/inpost-points.json is intentionally tracked in git (needed for Vercel builds)
+# Refresh with: npm run update-inpost
