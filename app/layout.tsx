@@ -6,6 +6,7 @@ import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { CartProvider } from "@/lib/cart";
 import { CartDrawer } from "@/components/cart-drawer";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-serif",
@@ -44,6 +45,7 @@ export default function RootLayout({
           <Footer />
           <CartDrawer />
         </CartProvider>
+        <SpeedInsights />
         </body>
     </html>
   );

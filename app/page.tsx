@@ -2,7 +2,6 @@ import { TrustStrip } from "@/components/trust-strip"
 import { ProductListing } from "@/components/product-listing"
 import { createClient } from "@/lib/supabase/server"
 import { ArrowRight } from "lucide-react"
-
 const FOUNDER_FALLBACK =
   "Mam psa od 7 lat i przez większość tego czasu nie wiedziałem, co mu właściwie daję. Pewnego dnia przeczytałem skład karmy, którą kupowałem od lat — i przestałem ją kupować. Ten sklep powstał, żeby inni nie musieli przez to przechodzić."
 
