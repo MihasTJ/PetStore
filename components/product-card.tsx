@@ -24,6 +24,7 @@ export interface Product {
   price: string;
   priceNumeric: number;
   weight: string;
+  stock?: number;
   healthTags: string[];
   isPremiumVerified?: boolean;
   hasExpertEndorsement?: boolean;
@@ -37,6 +38,7 @@ export function ProductCard({
   price,
   priceNumeric,
   weight,
+  stock = 9999,
   healthTags,
   isPremiumVerified = false,
   hasExpertEndorsement = false,
@@ -46,7 +48,7 @@ export function ProductCard({
 
   function handleAdd() {
     if (added) return;
-    addItem({ id, slug, name, price: priceNumeric, weight });
+    addItem({ id, slug, name, price: priceNumeric, weight, stock });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   }

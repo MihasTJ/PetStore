@@ -933,6 +933,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      reserve_order_stock: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
