@@ -1,6 +1,7 @@
 import { ORDERS, PRODUCTS } from "./data";
 import type { ViewId } from "./types";
 import { Icon, PetAvatar, Sparkline, StatusPill } from "./ui";
+import type { DashboardStats } from "@/lib/actions/dashboard";
 
 function FunnelChart() {
   const stages = [
@@ -81,11 +82,27 @@ function TrustRow({ label, value, pct, mossy }: { label: string; value: string; 
   );
 }
 
-export function DashboardView({ onNavigate }: { onNavigate: (v: ViewId) => void }) {
-  const salesData  = [12, 18, 15, 22, 19, 28, 31, 26, 35, 33, 42, 38, 45, 51, 48, 56, 62, 59, 64];
-  const quizData   = [8, 12, 11, 15, 17, 19, 21, 24, 23, 26, 28, 27, 31, 33, 35];
-  const petData    = [180, 195, 210, 228, 245, 260, 278, 290, 310, 328, 350, 372, 388, 400, 412];
-  const alertData  = [5, 8, 7, 12, 15, 18, 22, 28, 30, 35, 42, 48, 55, 68, 86];
+export function DashboardView({
+  onNavigate,
+  stats,
+}: {
+  onNavigate: (v: ViewId) => void;
+  stats: DashboardStats | null;
+}) {
+  const salesData  = stats?.salesSparkline ?? [12, 18, 15, 22, 19, 28, 31, 26, 35, 33, 42, 38, 45, 51];
+  const quizData   = stats?.quizSparkline  ?? [8, 12, 11, 15, 17, 19, 21, 24, 23, 26, 28, 27, 31, 33, 35];
+  const petData    = stats?.petSparkline   ?? [180, 195, 210, 228, 245, 260, 278, 290, 310, 328, 350, 372, 388, 400, 412];
+  const alertData  = stats?.alertsSparkline ?? [5, 8, 7, 12, 15, 18, 22, 28, 30, 35, 42, 48, 55, 68, 86];
+
+  const quizPct   = stats?.quizConversionPct  ?? null;
+  const quizDelta = stats?.quizConversionDelta ?? null;
+  const sales7d   = stats?.sales7d             ?? null;
+  const ordersCount = stats?.ordersCount7d     ?? null;
+  const petTotal  = stats?.petProfilesTotal    ?? null;
+  const petNew    = stats?.petProfilesNewThisWeek ?? null;
+  const alertsSent = stats?.alertsSent         ?? null;
+
+  const fmt = (n: number) => n.toLocaleString("pl-PL");
 
   const recentOrders = ORDERS.slice(0, 5);
   const lowStock     = PRODUCTS.filter((p) => p.stock > 0 && p.stock < 15).slice(0, 4);
@@ -111,10 +128,17 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: ViewId) => void 
         <div className="kpi">
           <div className="kpi-label">Konwersja Quiz → Zakup</div>
           <div className="kpi-value tabular">
-            28.4<span style={{ fontSize: 22, color: "var(--text-tertiary)" }}>%</span>
+            {quizPct === null ? "—" : quizPct.toFixed(1)}
+            <span style={{ fontSize: 22, color: "var(--text-tertiary)" }}>%</span>
           </div>
           <div className="kpi-meta">
-            <span className="kpi-delta up">↑ 3.2 pp</span>
+            {quizDelta !== null ? (
+              <span className={`kpi-delta ${quizDelta >= 0 ? "up" : ""}`}>
+                {quizDelta >= 0 ? "↑" : "↓"} {Math.abs(quizDelta).toFixed(1)} pp
+              </span>
+            ) : (
+              <span className="kpi-delta" style={{ color: "var(--text-tertiary)" }}>—</span>
+            )}
             <span>vs. zeszły tydzień</span>
           </div>
           <Sparkline data={quizData} />
@@ -122,29 +146,33 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: ViewId) => void 
         <div className="kpi">
           <div className="kpi-label">Sprzedaż (7 dni)</div>
           <div className="kpi-value tabular">
-            28 740<span style={{ fontSize: 16, color: "var(--text-tertiary)", marginLeft: 4 }}>PLN</span>
+            {sales7d === null ? "—" : fmt(Math.round(sales7d))}
+            <span style={{ fontSize: 16, color: "var(--text-tertiary)", marginLeft: 4 }}>PLN</span>
           </div>
           <div className="kpi-meta">
-            <span className="kpi-delta up">↑ 12%</span>
-            <span>148 zamówień</span>
+            <span className="kpi-delta up" />
+            <span>{ordersCount === null ? "—" : ordersCount} zamówień</span>
           </div>
           <Sparkline data={salesData} />
         </div>
         <div className="kpi">
           <div className="kpi-label">Aktywne profile pupili</div>
-          <div className="kpi-value tabular">412</div>
+          <div className="kpi-value tabular">{petTotal === null ? "—" : fmt(petTotal)}</div>
           <div className="kpi-meta">
-            <span className="kpi-delta up">↑ 27</span>
+            {petNew !== null && petNew > 0 ? (
+              <span className="kpi-delta up">↑ {petNew}</span>
+            ) : (
+              <span className="kpi-delta" style={{ color: "var(--text-tertiary)" }}>—</span>
+            )}
             <span>nowych w tym tygodniu</span>
           </div>
           <Sparkline data={petData} color="var(--secondary)" />
         </div>
         <div className="kpi">
           <div className="kpi-label">AI Alerty wysłane</div>
-          <div className="kpi-value tabular">86</div>
+          <div className="kpi-value tabular">{alertsSent === null ? "—" : fmt(alertsSent)}</div>
           <div className="kpi-meta">
-            <span className="kpi-delta up">52% open</span>
-            <span>· 18% klik → zakup</span>
+            <span style={{ color: "var(--text-tertiary)", fontSize: 11 }}>ostatnie 30 dni</span>
           </div>
           <Sparkline data={alertData} color="var(--secondary)" />
         </div>

@@ -6,6 +6,7 @@ import { ACCENTS, NAV } from "./data";
 import type { Product, ViewId } from "./types";
 import { Icon } from "./ui";
 import { DashboardView } from "./view-dashboard";
+import { getDashboardStats, type DashboardStats } from "@/lib/actions/dashboard";
 import { ProductEditor, ProductsView } from "./view-products";
 import { PetsView } from "./view-pets";
 import { OrdersView } from "./view-orders";
@@ -13,6 +14,7 @@ import { IntelligenceView } from "./view-intelligence";
 import { ContentView } from "./view-content";
 import { ExpertsView } from "./view-experts";
 import { CertificatesView } from "./view-certificates";
+import { CategoriesView } from "./view-categories";
 
 export default function AdminPage() {
   const [view, setView] = useState<ViewId>("dashboard");
@@ -20,6 +22,11 @@ export default function AdminPage() {
   const [accent, setAccent] = useState<keyof typeof ACCENTS>("terracotta");
   const [showCount, setShowCount] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  useEffect(() => {
+    getDashboardStats().then(setStats).catch(console.error);
+  }, []);
 
   useEffect(() => {
     const a = ACCENTS[accent];
@@ -33,7 +40,7 @@ export default function AdminPage() {
 
   const renderView = () => {
     switch (view) {
-      case "dashboard":   return <DashboardView onNavigate={setView} />;
+      case "dashboard":   return <DashboardView onNavigate={setView} stats={stats} />;
       case "products":    return <ProductsView onOpenEditor={setEditing} refreshKey={refreshKey} />;
       case "pets":        return <PetsView />;
       case "orders":      return <OrdersView />;
@@ -41,7 +48,8 @@ export default function AdminPage() {
       case "content":     return <ContentView />;
       case "experts":       return <ExpertsView />;
       case "certificates":  return <CertificatesView />;
-      default:            return <DashboardView onNavigate={setView} />;
+      case "categories":    return <CategoriesView />;
+      default:            return <DashboardView onNavigate={setView} stats={stats} />;
     }
   };
 

@@ -110,11 +110,31 @@ export function StatusPill({ status }: { status: string }) {
     Draft: "status-draft",
     "Out of stock": "status-out",
     Paid: "status-paid",
+    paid: "status-paid",
     Pending: "status-pending",
+    pending: "status-pending",
     Shipped: "status-shipped",
+    shipped: "status-shipped",
     Cancelled: "status-cancelled",
+    cancelled: "status-cancelled",
+    processing: "status-pending",
+    delivered: "status-active",
+    refunded: "status-draft",
   };
-  return <span className={`status ${map[status] ?? ""}`}>{status}</span>;
+  const labels: Record<string, string> = {
+    paid: "Opłacone",
+    pending: "Oczekujące",
+    processing: "W realizacji",
+    shipped: "Wysłane",
+    delivered: "Dostarczone",
+    cancelled: "Anulowane",
+    refunded: "Zwrot",
+  };
+  return (
+    <span className={`status ${map[status] ?? ""}`}>
+      {labels[status] ?? status}
+    </span>
+  );
 }
 
 export function HealthTag({ name }: { name: string }) {

@@ -1,9 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Product, ProductStatus } from "./types";
 import { HealthTag, Icon, StatusPill, Toggle } from "./ui";
-import { createProduct, getAdminProducts, updateProduct, getProductIngredients, addIngredient, updateIngredient, deleteIngredient, reorderIngredients } from "@/lib/actions/products";
+import { createProduct, getAdminProducts, updateProduct, getProductIngredients, addIngredient, updateIngredient, deleteIngredient, reorderIngredients, getProductChangelog, type ChangelogEntry } from "@/lib/actions/products";
+import { getCategories, type CategoryRow } from "@/lib/actions/categories";
 import { getProductEndorsement, saveProductEndorsement, getExperts, getProductCertificates, addProductCertificate, deleteProductCertificate, uploadCertificateFile } from "@/lib/actions/endorsements";
 import type { ExpertRow } from "@/lib/actions/endorsements";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const min  = Math.floor(diff / 60_000)
+  const h    = Math.floor(diff / 3_600_000)
+  const d    = Math.floor(diff / 86_400_000)
+  if (min < 2)  return "Przed chwilą"
+  if (min < 60) return `${min} min temu`
+  if (h < 24)   return `${h} godz. temu`
+  if (d === 1)  return "Wczoraj"
+  if (d < 7)    return `${d} dni temu`
+  return new Date(iso).toLocaleDateString("pl-PL", { day: "numeric", month: "short" })
+}
 
 // ── DB row types (after migration, amount is present) ─────────────────────────
 type DbIngredient = {
@@ -66,6 +82,7 @@ function toAdminProduct(p: Awaited<ReturnType<typeof getAdminProducts>>[number])
     is_premium_verified: p.is_premium_verified,
     vet: null,
     category: ((p.categories as { name: string } | null)?.name) ?? "—",
+    category_id: (p as { category_id?: string | null }).category_id ?? null,
     species: ((p.species as string[]) ?? []).join(" / ") || "—",
     health: (p.health_tags as string[]) ?? [],
     updated: new Date(p.updated_at).toLocaleDateString("pl-PL", { day: "numeric", month: "short" }),
@@ -350,8 +367,14 @@ function NewProductDrawer({ onClose, onCreated }: NewProductDrawerProps) {
   const [healthTags, setHealthTags]       = useState<string[]>([]);
   const [isPremiumVerified, setIsPremiumVerified] = useState(false);
   const [status, setStatus]               = useState<ProductStatus>("Draft");
+  const [categoryId, setCategoryId]       = useState<string>("");
+  const [categories, setCategories]       = useState<CategoryRow[]>([]);
   const [saving, setSaving]               = useState(false);
   const [errorMsg, setErrorMsg]           = useState("");
+
+  useEffect(() => {
+    getCategories().then(setCategories).catch(() => {});
+  }, []);
 
   function handleNameChange(val: string) {
     setName(val);
@@ -388,6 +411,7 @@ function NewProductDrawer({ onClose, onCreated }: NewProductDrawerProps) {
         health_tags: healthTags,
         is_premium_verified: isPremiumVerified,
         status,
+        category_id: categoryId || null,
       });
     } catch {
       setSaving(false);
@@ -465,6 +489,19 @@ function NewProductDrawer({ onClose, onCreated }: NewProductDrawerProps) {
             <div className="card-island">
               <div className="serif" style={{ fontSize: 18, marginBottom: 16 }}>Klasyfikacja</div>
               <div className="col" style={{ gap: 18 }}>
+                <div className="field">
+                  <div className="field-label" style={{ marginBottom: 8 }}>Kategoria</div>
+                  <select
+                    className="input"
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                  >
+                    <option value="">— brak kategorii —</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <div className="field-label" style={{ marginBottom: 8 }}>Gatunek</div>
                   <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
@@ -573,6 +610,9 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
   const [seoDesc, setSeoDesc]         = useState("Skład zweryfikowany przez weterynarza. Bezpieczny dla ras predysponowanych do alergii. Darmowa dostawa od 199 PLN.");
   const [isPremiumVerified, setIsPremiumVerified] = useState(product.is_premium_verified);
   const [premiumNarrative, setPremiumNarrative]   = useState("Wyprodukowany w małej norweskiej manufakturze rodzinnej. Każda partia weryfikowana przez niezależne laboratorium.");
+  const [categoryId, setCategoryId]   = useState<string>(product.category_id ?? "");
+  const [categories, setCategories]   = useState<CategoryRow[]>([]);
+  const [changelog, setChangelog]     = useState<ChangelogEntry[]>([]);
   const [saving, setSaving]           = useState(false);
   const [errorMsg, setErrorMsg]       = useState("");
 
@@ -608,6 +648,11 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
   const certFileRef = useRef<HTMLInputElement>(null);
 
   // Load side-data on open
+  useEffect(() => {
+    getCategories().then(setCategories).catch(() => {});
+    getProductChangelog(product.id).then(setChangelog).catch(() => {});
+  }, [product.id]);
+
   useEffect(() => {
     setIngLoading(true);
     getProductIngredients(product.id)
@@ -650,9 +695,11 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
       is_premium_verified: isPremiumVerified,
       health_tags: healthTags,
       species: speciesList,
+      category_id: categoryId || null,
     });
     setSaving(false);
     if ("error" in result) { setErrorMsg(result.error); return; }
+    getProductChangelog(product.id).then(setChangelog).catch(() => {});
     onSaved?.();
     onClose();
   }
@@ -1088,10 +1135,23 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
               </div>
             </div>
 
-            {/* Tagi zdrowotne i gatunki */}
+            {/* Kategoria + tagi zdrowotne i gatunki */}
             <div className="card-tight">
-              <div className="eyebrow" style={{ marginBottom: 12 }}>Tagi zdrowotne i gatunki</div>
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Klasyfikacja</div>
               <div className="col" style={{ gap: 14 }}>
+                <div className="field">
+                  <div className="field-label" style={{ marginBottom: 6 }}>Kategoria</div>
+                  <select
+                    className="input"
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                  >
+                    <option value="">— brak kategorii —</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <div className="row-between" style={{ marginBottom: 6 }}>
                     <div className="field-label">Tagi zdrowotne</div>
@@ -1206,22 +1266,26 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
             <div className="card-tight">
               <div className="eyebrow" style={{ marginBottom: 12 }}>Historia zmian</div>
               <div className="col" style={{ gap: 12, fontSize: 12 }}>
-                {[
-                  { who: "Sync", what: "Cena hurtowa zaktualizowana (115 → 117 PLN)", when: "2 godz temu",  quiet: true  },
-                  { who: "AK",   what: "Dodano endorsement dr. Kowalskiej",           when: "Wczoraj",      quiet: false },
-                  { who: "MW",   what: "Edytowany meta description",                  when: "3 dni temu",   quiet: false },
-                  { who: "Sync", what: "Stock z 52 → 47",                             when: "5 dni temu",   quiet: true  },
-                ].map((e, i) => (
-                  <div key={i} className="row" style={{ gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ width: 24, height: 24, borderRadius: "50%", background: e.quiet ? "var(--bg-warm-island)" : "var(--secondary-soft)", display: "grid", placeItems: "center", fontSize: 10, color: e.quiet ? "var(--text-tertiary)" : "var(--secondary)", flexShrink: 0, fontWeight: 500 }}>
-                      {e.who}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: "var(--text-primary)", lineHeight: 1.4 }}>{e.what}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{e.when}</div>
-                    </div>
+                {changelog.length === 0 && (
+                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontStyle: "italic" }}>
+                    Brak zapisanych zmian. Historia pojawi się po pierwszym zapisaniu produktu.
                   </div>
-                ))}
+                )}
+                {changelog.map((e) => {
+                  const isSync = e.source === "sync";
+                  const initials = isSync ? "Sync" : e.changed_by.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+                  return (
+                    <div key={e.id} className="row" style={{ gap: 10, alignItems: "flex-start" }}>
+                      <div style={{ width: 24, height: 24, borderRadius: "50%", background: isSync ? "var(--bg-warm-island)" : "var(--secondary-soft)", display: "grid", placeItems: "center", fontSize: 10, color: isSync ? "var(--text-tertiary)" : "var(--secondary)", flexShrink: 0, fontWeight: 500 }}>
+                        {initials}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: "var(--text-primary)", lineHeight: 1.4 }}>{e.summary}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{relativeTime(e.created_at)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

@@ -10,11 +10,11 @@ export const PETS: Pet[] = [
 ];
 
 export const PRODUCTS: Product[] = [
-  { id: "p-001", name: "Suplement na stawy z glukozaminą — premium", slug: "suplement-stawy-premium", original: "GlucoVet Joint 60kaps - WHOLESALER SKU 88421", supplier: "Droplo / VetPharma PL", price: 189, stock: 47, status: "Active", is_premium_verified: true, vet: "dr Anna Kowalska", category: "Suplementy", species: "Pies", health: ["Stawy", "Senior"], updated: "2 godz temu", img: "Suplement\nstawy" },
-  { id: "p-002", name: "Karma sucha — łosoś norweski dla seniora", slug: "karma-losos-norweski-senior", original: "Salmon Senior Dog Food 4kg PREMIUM", supplier: "BaseLinker / NordicPet", price: 249, stock: 12, status: "Active", is_premium_verified: true, vet: "dr Piotr Mazur", category: "Karma", species: "Pies", health: ["Sierść", "Stawy"], updated: "Wczoraj", img: "Karma\nłosoś" },
-  { id: "p-003", name: "Probiotyk dla kota z wrażliwym żołądkiem", slug: "probiotyk-kot-wrazliwy-zoladek", original: "FelineGut Probiotic 30 sachets", supplier: "Droplo / FelineCare", price: 129, stock: 0, status: "Out of stock", is_premium_verified: true, vet: "dr Anna Kowalska", category: "Suplementy", species: "Kot", health: ["Układ pokarmowy"], updated: "3 dni temu", img: "Probiotyk" },
-  { id: "p-004", name: "Akcesorium stomatologiczne — szczotka silikonowa", slug: "szczotka-stomatologiczna-silikon", original: "DentalCare Silicone Brush ECO", supplier: "BaseLinker / PetEssentials", price: 39, stock: 124, status: "Active", is_premium_verified: false, vet: null, category: "Akcesoria", species: "Pies/Kot", health: ["Zęby"], updated: "5 dni temu", img: "Szczotka" },
-  { id: "p-005", name: "Karma mokra — kurczak z warzywami (kot)", slug: "karma-mokra-kurczak-warzywa-kot", original: "WetCat Chicken+Veggies 12x85g", supplier: "Droplo / FelineCare", price: 89, stock: 4, status: "Active", is_premium_verified: true, vet: "dr Anna Kowalska", category: "Karma", species: "Kot", health: ["Waga"], updated: "Dziś", img: "Karma\nmokra" },
+  { id: "p-001", name: "Suplement na stawy z glukozaminą — premium", slug: "suplement-stawy-premium", original: "GlucoVet Joint 60kaps - WHOLESALER SKU 88421", supplier: "Droplo / VetPharma PL", price: 189, stock: 47, status: "Active", is_premium_verified: true, vet: "dr Anna Kowalska", category: "Suplementy", category_id: null, species: "Pies", health: ["Stawy", "Senior"], updated: "2 godz temu", img: "Suplement\nstawy" },
+  { id: "p-002", name: "Karma sucha — łosoś norweski dla seniora", slug: "karma-losos-norweski-senior", original: "Salmon Senior Dog Food 4kg PREMIUM", supplier: "BaseLinker / NordicPet", price: 249, stock: 12, status: "Active", is_premium_verified: true, vet: "dr Piotr Mazur", category: "Karma", category_id: null, species: "Pies", health: ["Sierść", "Stawy"], updated: "Wczoraj", img: "Karma\nłosoś" },
+  { id: "p-003", name: "Probiotyk dla kota z wrażliwym żołądkiem", slug: "probiotyk-kot-wrazliwy-zoladek", original: "FelineGut Probiotic 30 sachets", supplier: "Droplo / FelineCare", price: 129, stock: 0, status: "Out of stock", is_premium_verified: true, vet: "dr Anna Kowalska", category: "Suplementy", category_id: null, species: "Kot", health: ["Układ pokarmowy"], updated: "3 dni temu", img: "Probiotyk" },
+  { id: "p-004", name: "Akcesorium stomatologiczne — szczotka silikonowa", slug: "szczotka-stomatologiczna-silikon", original: "DentalCare Silicone Brush ECO", supplier: "BaseLinker / PetEssentials", price: 39, stock: 124, status: "Active", is_premium_verified: false, vet: null, category: "Akcesoria", category_id: null, species: "Pies/Kot", health: ["Zęby"], updated: "5 dni temu", img: "Szczotka" },
+  { id: "p-005", name: "Karma mokra — kurczak z warzywami (kot)", slug: "karma-mokra-kurczak-warzywa-kot", original: "WetCat Chicken+Veggies 12x85g", supplier: "Droplo / FelineCare", price: 89, stock: 4, status: "Active", is_premium_verified: true, vet: "dr Anna Kowalska", category: "Karma", category_id: null, species: "Kot", health: ["Waga"], updated: "Dziś", img: "Karma\nmokra" },
 ];
 
 export const ORDERS = [
@@ -38,6 +38,7 @@ export const NAV: ReadonlyArray<{ id: ViewId; label: string; icon: string; group
   { id: "orders", label: "Zamówienia", icon: "orders", group: "main", count: 18 },
   { id: "experts", label: "Kuratorzy", icon: "shield", group: "main" },
   { id: "certificates", label: "Certyfikaty", icon: "cert", group: "main" },
+  { id: "categories", label: "Kategorie", icon: "filter", group: "main" },
   { id: "intelligence", label: "AI Intelligence", icon: "ai", group: "premium" },
   { id: "content", label: "Treść · zaufanie", icon: "content", group: "premium" },
 ];

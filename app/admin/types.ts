@@ -6,7 +6,8 @@ export type ViewId =
   | "intelligence"
   | "content"
   | "experts"
-  | "certificates";
+  | "certificates"
+  | "categories";
 
 export type ProductStatus = "Active" | "Draft" | "Out of stock";
 export type OrderStatus = "Paid" | "Pending" | "Shipped" | "Cancelled";
@@ -38,6 +39,7 @@ export type Product = {
   is_premium_verified: boolean;
   vet: string | null;
   category: string;
+  category_id: string | null;
   species: string;
   health: string[];
   updated: string;
