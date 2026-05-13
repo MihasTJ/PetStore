@@ -135,12 +135,29 @@ export function CartDrawer() {
                         >
                           <Minus size={12} />
                         </button>
-                        <span className="w-6 text-center text-sm font-medium text-ink font-tnum select-none">
-                          {item.quantity}
-                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={item.stock}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (!isNaN(v)) updateQty(item.id, v);
+                          }}
+                          onBlur={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (isNaN(v) || v < 1) updateQty(item.id, 1);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                          }}
+                          className="w-8 text-center text-sm font-medium text-ink font-tnum bg-transparent border-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          aria-label="Ilość"
+                        />
                         <button
                           onClick={() => updateQty(item.id, item.quantity + 1)}
-                          className="w-8 h-8 flex items-center justify-center text-ink-muted hover:bg-terracotta/10 hover:text-terracotta transition-colors cursor-pointer"
+                          disabled={item.quantity >= item.stock}
+                          className="w-8 h-8 flex items-center justify-center text-ink-muted hover:bg-terracotta/10 hover:text-terracotta transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                           aria-label="Zwiększ ilość"
                         >
                           <Plus size={12} />

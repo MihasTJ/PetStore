@@ -13,6 +13,7 @@ type CreateProductInput = {
   health_tags?: string[]
   is_premium_verified?: boolean
   status?: string
+  category_id?: string | null
 }
 
 // UI → DB: panel uses "Active"/"Draft"/"Out of stock", DB uses 'active'/'draft'/'archived'
@@ -25,11 +26,16 @@ function toDbStatus(uiStatus: string): string {
   return map[uiStatus] ?? uiStatus.toLowerCase()
 }
 
+function fmtDbStatus(s: string): string {
+  const map: Record<string, string> = { active: "Aktywny", draft: "Szkic", archived: "Wyprzedany" }
+  return map[s] ?? s
+}
+
 export async function getAdminProducts() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("products")
-    .select("id, name_seo, name_original, slug, price_sell, stock, status, is_premium_verified, health_tags, species, updated_at, categories(name)")
+    .select("id, name_seo, name_original, slug, price_sell, stock, status, is_premium_verified, health_tags, species, updated_at, category_id, categories(name)")
     .order("created_at", { ascending: false })
   if (error) {
     console.error("[admin] getAdminProducts error:", error)
@@ -49,10 +55,19 @@ export async function updateProduct(
     is_premium_verified?: boolean
     health_tags?: string[]
     species?: string[]
+    category_id?: string | null
   }
 ): Promise<{ ok: true } | { error: string }> {
   const supabase = createAdminClient()
   const dbStatus = input.status !== undefined ? toDbStatus(input.status) : undefined
+
+  // Fetch current values to build diff
+  const { data: current } = await supabase
+    .from("products")
+    .select("name_seo, slug, price_sell, stock, status, is_premium_verified, health_tags, species, category_id")
+    .eq("id", id)
+    .single()
+
   const updates: {
     name_seo?: string
     slug?: string
@@ -62,6 +77,7 @@ export async function updateProduct(
     is_premium_verified?: boolean
     health_tags?: string[]
     species?: string[]
+    category_id?: string | null
     is_active?: boolean
     updated_at: string
   } = {
@@ -72,15 +88,70 @@ export async function updateProduct(
     ...(input.is_premium_verified !== undefined && { is_premium_verified: input.is_premium_verified }),
     ...(input.health_tags !== undefined && { health_tags: input.health_tags }),
     ...(input.species !== undefined && { species: input.species }),
+    ...("category_id" in input && { category_id: input.category_id ?? null }),
     ...(dbStatus !== undefined && { status: dbStatus }),
     updated_at: new Date().toISOString(),
   }
   if ("stock" in input || "status" in input) {
     updates.is_active = (input.stock ?? 0) > 0 && dbStatus === "active"
   }
+
   const { error } = await supabase.from("products").update(updates).eq("id", id)
   if (error) return { error: error.message }
+
+  // Build and insert changelog entry
+  if (current) {
+    const lines: string[] = []
+    if (input.name_seo !== undefined && input.name_seo !== current.name_seo)
+      lines.push("Zmieniono nazwę editorial")
+    if (input.slug !== undefined && input.slug !== current.slug)
+      lines.push("Zmieniono slug URL")
+    if (input.price_sell !== undefined && input.price_sell !== current.price_sell)
+      lines.push(`Cena: ${current.price_sell} → ${input.price_sell} PLN`)
+    if (input.stock !== undefined && input.stock !== current.stock)
+      lines.push(`Stan magazynowy: ${current.stock} → ${input.stock} szt.`)
+    if (dbStatus !== undefined && dbStatus !== current.status)
+      lines.push(`Status: ${fmtDbStatus(current.status)} → ${fmtDbStatus(dbStatus)}`)
+    if (input.is_premium_verified !== undefined && input.is_premium_verified !== current.is_premium_verified)
+      lines.push(input.is_premium_verified ? "Włączono Premium Verified" : "Wyłączono Premium Verified")
+    if (input.health_tags !== undefined && JSON.stringify(input.health_tags.sort()) !== JSON.stringify((current.health_tags as string[] ?? []).sort()))
+      lines.push("Zaktualizowano tagi zdrowotne")
+    if (input.species !== undefined && JSON.stringify(input.species.sort()) !== JSON.stringify((current.species as string[] ?? []).sort()))
+      lines.push("Zmieniono gatunki")
+    if ("category_id" in input && (input.category_id ?? null) !== (current.category_id ?? null))
+      lines.push("Zmieniono kategorię")
+
+    if (lines.length > 0) {
+      await supabase.from("product_change_log").insert({
+        product_id: id,
+        summary: lines.join(" · "),
+        source: "admin",
+        changed_by: "Admin",
+      })
+    }
+  }
+
   return { ok: true }
+}
+
+export type ChangelogEntry = {
+  id: string
+  changed_by: string
+  source: string
+  summary: string
+  created_at: string
+}
+
+export async function getProductChangelog(productId: string): Promise<ChangelogEntry[]> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from("product_change_log")
+    .select("id, changed_by, source, summary, created_at")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false })
+    .limit(20)
+  if (error) return []
+  return data ?? []
 }
 
 export async function createProduct(
@@ -104,6 +175,7 @@ export async function createProduct(
       is_premium_verified: input.is_premium_verified ?? false,
       status: dbStatus,
       is_active: (input.stock ?? 0) > 0 && dbStatus === "active",
+      category_id: input.category_id ?? null,
     })
     .select("id")
     .single()

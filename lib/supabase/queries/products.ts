@@ -64,7 +64,7 @@ export async function getProductBySlug(
 
   let query = supabase
     .from("products")
-    .select(`*, product_ingredients(*)`)
+    .select(`*, product_ingredients(*), categories(name, slug)`)
     .eq("slug", slug);
 
   if (!options.preview) {

@@ -114,8 +114,16 @@ export default async function ProductPage({
       <nav aria-label="Nawigacja okruszkowa" className="mx-auto max-w-editorial px-6 pt-20 md:px-12 md:pt-28">
         <ol className="flex items-center gap-1.5 text-xs text-ink-subtle">
           <li><Link href="/" className="hover:text-ink-muted transition-colors">Sklep</Link></li>
-          <li aria-hidden><ChevronRight size={12} /></li>
-          <li><Link href="/suplementy" className="hover:text-ink-muted transition-colors">Suplementy</Link></li>
+          {product.categories && (
+            <>
+              <li aria-hidden><ChevronRight size={12} /></li>
+              <li>
+                <Link href={`/kategoria/${product.categories.slug}`} className="hover:text-ink-muted transition-colors capitalize">
+                  {product.categories.name}
+                </Link>
+              </li>
+            </>
+          )}
           <li aria-hidden><ChevronRight size={12} /></li>
           <li className="text-ink-muted truncate max-w-[200px]" aria-current="page">
             {product.name_seo}
@@ -158,9 +166,14 @@ export default async function ProductPage({
               </div>
             )}
 
-            {/* Tagi zdrowotne */}
-            {product.health_tags.length > 0 && (
+            {/* Kategoria + tagi zdrowotne */}
+            {(product.categories || product.health_tags.length > 0) && (
               <div className="mb-5 flex flex-wrap gap-2">
+                {product.categories && (
+                  <span className="rounded-tag px-2.5 py-1 text-[11px] font-medium capitalize text-ink-muted bg-warm-island">
+                    {product.categories.name}
+                  </span>
+                )}
                 {product.health_tags.map((tag) => (
                   <span
                     key={tag}
@@ -241,6 +254,7 @@ export default async function ProductPage({
                   name: product.name_seo,
                   price: product.price_sell,
                   weight: product.usage_days ? `${product.usage_days} porcji` : "",
+                  stock: product.stock,
                 }}
               />
             </div>

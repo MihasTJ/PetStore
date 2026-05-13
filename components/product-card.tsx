@@ -54,7 +54,7 @@ export function ProductCard({
   return (
     <article className="group flex flex-col bg-card-warm rounded-card-sm shadow-warm hover:shadow-warm-md transition-shadow duration-200 overflow-hidden">
       {/* Image */}
-      <a href={`/products/${slug}`} className="relative block aspect-[4/3] bg-warm-island shrink-0">
+      <a href={`/products/${slug}`} className="relative block aspect-square sm:aspect-[4/3] bg-warm-island shrink-0">
         {isPremiumVerified && (
           <span
             className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-tag px-2 py-1 text-[11px] font-medium tracking-eyebrow uppercase"
@@ -72,11 +72,11 @@ export function ProductCard({
       </a>
 
       {/* Content */}
-      <div className="flex flex-col flex-1 px-5 pb-5 pt-4">
+      <div className="flex flex-col flex-1 px-3 pb-3 pt-2.5 sm:px-5 sm:pb-5 sm:pt-4">
         {/* Health tags */}
         {healthTags.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {healthTags.map((tag) => (
+            {healthTags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
                 className="rounded-tag px-2 py-0.5 text-[11px] font-medium capitalize"
@@ -107,7 +107,7 @@ export function ProductCard({
         {/* Spacer + Price + CTA */}
         <div className="mt-auto" />
         <div className="border-t border-border-warm" />
-        <div className="flex items-end justify-between gap-3 pt-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3 pt-4">
           <div>
             <p className="font-tnum text-base font-medium text-ink leading-tight">{price}</p>
             {weight && <p className="mt-0.5 text-[11px] text-ink-subtle">{weight}</p>}
@@ -116,7 +116,7 @@ export function ProductCard({
             type="button"
             onClick={handleAdd}
             className={[
-              "shrink-0 inline-flex items-center gap-1.5 rounded-button px-4 py-2 text-sm font-medium text-card-warm",
+              "w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 rounded-button px-4 py-2 text-sm font-medium text-card-warm",
               "transition-[background-color,transform] duration-300 active:scale-95 cursor-pointer",
               added ? "bg-moss" : "bg-terracotta hover:bg-terracotta-hover",
             ].join(" ")}

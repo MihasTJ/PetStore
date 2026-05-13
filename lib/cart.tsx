@@ -8,6 +8,7 @@ export interface CartItem {
   name: string;
   price: number;
   weight: string;
+  stock: number;
   quantity: number;
 }
 
@@ -33,7 +34,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem("nobile_cart");
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        const parsed: CartItem[] = JSON.parse(raw);
+        setItems(parsed.map((i) => ({
+          ...i,
+          stock: typeof i.stock === "number" && i.stock >= 0 ? i.stock : 9999,
+          quantity: typeof i.quantity === "number" && i.quantity > 0 ? i.quantity : 1,
+        })));
+      }
     } catch {}
   }, []);
 
@@ -46,7 +54,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   function addItem(item: Omit<CartItem, "quantity">) {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
-      if (existing) return prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      if (existing) {
+        if (existing.quantity >= item.stock) return prev;
+        return prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      }
       return [...prev, { ...item, quantity: 1 }];
     });
   }
@@ -57,7 +68,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   function updateQty(id: string, qty: number) {
     if (qty <= 0) { removeItem(id); return; }
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: qty } : i));
+    setItems((prev) => prev.map((i) => {
+      if (i.id !== id) return i;
+      const max = typeof i.stock === "number" && i.stock > 0 ? i.stock : qty;
+      return { ...i, quantity: Math.min(qty, max) };
+    }));
   }
 
   function clearCart() { setItems([]); }
