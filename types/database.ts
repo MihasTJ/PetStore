@@ -482,6 +482,41 @@ export type Database = {
           },
         ]
       }
+      product_change_log: {
+        Row: {
+          id: string
+          product_id: string
+          changed_by: string
+          source: string
+          summary: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          changed_by?: string
+          source?: string
+          summary: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          changed_by?: string
+          source?: string
+          summary?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_change_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           breed_tags: string[]
@@ -1055,6 +1090,7 @@ export type OrderWithItems = Order & {
 
 export type ProductWithRelations = Product & {
   product_ingredients: ProductIngredient[]
+  categories: { name: string; slug: string } | null
 }
 
 export type AlertWithProduct = AiAlert & {
