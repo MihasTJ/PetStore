@@ -61,6 +61,47 @@ export async function createPayuOrder(
   throw new Error(`PayU createOrder failed (${res.status}): ${text}`);
 }
 
+export async function createPayuRefund(
+  payuOrderId: string,
+  description = "Zwrot środków"
+): Promise<{ success: boolean; error?: string }> {
+  const token = await getToken();
+
+  const res = await fetch(`${PAYU_BASE}/api/v2_1/orders/${payuOrderId}/refunds`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ refund: { description } }),
+    cache: "no-store",
+  });
+
+  const json = await res.json() as { status?: { statusCode?: string; statusDesc?: string } };
+  if (res.ok && json.status?.statusCode === "SUCCESS") {
+    return { success: true };
+  }
+
+  return {
+    success: false,
+    error: json.status?.statusDesc ?? `PayU refund failed (${res.status})`,
+  };
+}
+
+export async function getPayuOrderRefunds(payuOrderId: string): Promise<"FINALIZED" | "PENDING" | null> {
+  const token = await getToken();
+  const res = await fetch(`${PAYU_BASE}/api/v2_1/orders/${payuOrderId}/refunds`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const json = await res.json() as { refunds?: Array<{ status: string }> };
+  const refunds = json.refunds ?? [];
+  if (refunds.some((r) => r.status === "FINALIZED")) return "FINALIZED";
+  if (refunds.some((r) => r.status === "PENDING")) return "PENDING";
+  return null;
+}
+
 export async function getPayuOrderStatus(payuOrderId: string): Promise<import("./types").PayuOrderStatus | null> {
   const token = await getToken();
   const res = await fetch(`${PAYU_BASE}/api/v2_1/orders/${payuOrderId}`, {

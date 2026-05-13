@@ -56,7 +56,7 @@ export async function createOrder(
   // SELECT products — RLS policy: using (true), anon key works fine
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, price_sell, name_seo")
+    .select("id, price_sell, name_seo, stock")
     .in("id", productIds)
     .eq("is_active", true);
 
@@ -77,6 +77,16 @@ export async function createOrder(
     };
   }
 
+  const stockMap = new Map(products.map((p) => [p.id, p.stock]));
+  const overStock = data.items.filter((item) => item.quantity > (stockMap.get(item.id) ?? 0));
+  if (overStock.length > 0) {
+    const names = overStock.map((i) => products.find((p) => p.id === i.id)?.name_seo ?? i.id).join(", ");
+    console.error("[checkout] Requested quantity exceeds stock:", overStock);
+    return {
+      error: `Niewystarczający stan magazynowy: ${names}. Zmniejsz ilość i spróbuj ponownie.`,
+    };
+  }
+
   const priceMap = new Map(products.map((p) => [p.id, p.price_sell]));
 
   const deliveryGrosze = DELIVERY_GROSZE[data.delivery];
@@ -87,6 +97,19 @@ export async function createOrder(
     0
   );
   const totalGrosze = productsGrosze + deliveryGrosze + packagingGrosze;
+
+  // If petName wasn't passed (user skipped quiz), fall back to their saved pet profile
+  let resolvedPetName = data.petName?.trim() || null;
+  if (!resolvedPetName && user) {
+    const { data: petProfile } = await supabase
+      .from("pet_profiles")
+      .select("pet_name")
+      .eq("customer_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (petProfile?.pet_name) resolvedPetName = petProfile.pet_name;
+  }
 
   // Pre-generate order UUID so we don't need SELECT after INSERT.
   // orders_select policy requires auth.uid() = customer_id — for guests both are
@@ -127,7 +150,7 @@ export async function createOrder(
       premium_packaging: data.premiumPackaging,
       packaging_note: data.packagingNote || null,
       nip: data.nip || null,
-      pet_name: data.petName?.trim() || null,
+      pet_name: resolvedPetName,
     });
 
   if (orderError) {
@@ -155,6 +178,24 @@ export async function createOrder(
     console.error("[checkout] Order items error:", itemsError);
     return {
       error: "Błąd przy zapisywaniu pozycji zamówienia. Skontaktuj się z obsługą.",
+    };
+  }
+
+  // Atomically reserve stock — uses FOR UPDATE locks, serializes concurrent checkouts
+  const adminSupabase = createAdminClient();
+  const { data: reserveData, error: reserveError } = await adminSupabase.rpc(
+    "reserve_order_stock",
+    { p_order_id: order.id }
+  );
+
+  const reserved = !reserveError && (reserveData as { ok?: boolean } | null)?.ok === true;
+  if (!reserved) {
+    console.error("[checkout] Stock reservation failed:", reserveError ?? reserveData);
+    // order_items cascade-deletes with the order
+    await adminSupabase.from("orders").delete().eq("id", order.id);
+    return {
+      error:
+        "Jeden lub więcej produktów nie jest już dostępnych w zamówionej ilości. Odśwież koszyk i spróbuj ponownie.",
     };
   }
 

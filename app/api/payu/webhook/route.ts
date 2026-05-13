@@ -8,8 +8,8 @@ import {
   type OrderEmailData,
 } from "@/lib/email/order-confirmation";
 
-type OrderStatus = "pending" | "paid" | "cancelled";
-type PaymentStatus = "pending" | "paid" | "failed";
+type OrderStatus = "pending" | "paid" | "cancelled" | "refunded";
+type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 
 const ORDER_STATUS: Record<PayuOrderStatus, OrderStatus> = {
   PENDING: "pending",
@@ -42,13 +42,61 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "invalid json" }, { status: 400 });
   }
 
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  // ── Refund notification ───────────────────────────────────────────────────
+  // PayU sends refunds with a `refund` object. The `order` object may also be
+  // present in the same payload (format varies by PayU version), so check
+  // `refund` first. Never use update_order_payment RPC here — it was built for
+  // order status transitions only; use a direct admin update instead.
+  if (notification.refund) {
+    const { refund } = notification;
+
+    // Only FINALIZED means money was actually returned to the customer
+    if (refund.status !== "FINALIZED") {
+      return NextResponse.json({ status: "OK" });
+    }
+
+    // extOrderId is our DB UUID — may live at top level or inside order object
+    const extOrderId =
+      notification.extOrderId ?? notification.order?.extOrderId ?? null;
+    const payuOrderId =
+      notification.orderId ?? notification.order?.orderId ?? null;
+
+    let updateError: { message: string } | null = null;
+
+    if (extOrderId) {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "refunded", payment_status: "refunded" })
+        .eq("id", extOrderId);
+      updateError = error;
+    } else if (payuOrderId) {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "refunded", payment_status: "refunded" })
+        .eq("payment_id", payuOrderId);
+      updateError = error;
+    } else {
+      console.error("[webhook] refund: no order identifier in payload", notification);
+      return NextResponse.json({ message: "no order identifier" }, { status: 400 });
+    }
+
+    if (updateError) {
+      console.error("[webhook] refund DB update error:", updateError);
+      return NextResponse.json({ message: "db error" }, { status: 500 });
+    }
+
+    return NextResponse.json({ status: "OK" });
+  }
+
+  // ── Order status notification ─────────────────────────────────────────────
   const { order } = notification;
   if (!order) {
     return NextResponse.json({ message: "missing order" }, { status: 400 });
   }
 
-  const { createAdminClient } = await import("@/lib/supabase/admin");
-  const supabase = createAdminClient();
   const orderStatus = ORDER_STATUS[order.status] ?? "pending";
   const paymentStatus = PAYMENT_STATUS[order.status] ?? "pending";
 

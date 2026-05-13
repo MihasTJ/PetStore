@@ -37,7 +37,7 @@ export type PayuOrderStatus =
   | "REJECTED";
 
 export interface PayuNotification {
-  order: {
+  order?: {
     orderId: string;
     extOrderId?: string;
     orderCreateDate: string;
@@ -49,6 +49,19 @@ export interface PayuNotification {
     totalAmount: string;
     status: PayuOrderStatus;
     products: PayuProduct[];
+  };
+  // Refund notifications have a different top-level shape — no `order` key
+  orderId?: string;
+  extOrderId?: string;
+  refund?: {
+    refundId: string;
+    amount: string;
+    currencyCode: string;
+    status: "FINALIZED" | "CANCELED";
+    statusDateTime?: string;
+    reason?: string;
+    reasonDescription?: string;
+    refundDate?: string;
   };
   localReceiptDateTime?: string;
   properties?: Array<{ name: string; value: string }>;
