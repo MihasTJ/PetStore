@@ -34,6 +34,7 @@ export type Product = {
   original: string;
   supplier: string;
   price: number;
+  price_promo: number | null;
   stock: number;
   status: ProductStatus;
   is_premium_verified: boolean;
@@ -42,6 +43,8 @@ export type Product = {
   category_id: string | null;
   species: string;
   health: string[];
+  life_stage: string[];
+  breed_tags: string[];
   updated: string;
   img: string;
 };

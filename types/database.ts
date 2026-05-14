@@ -517,6 +517,35 @@ export type Database = {
           },
         ]
       }
+      product_price_history: {
+        Row: {
+          id: string
+          product_id: string
+          price_sell: number
+          recorded_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          price_sell: number
+          recorded_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          price_sell?: number
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           breed_tags: string[]
@@ -537,6 +566,7 @@ export type Database = {
           name_original: string | null
           name_seo: string
           price_original: number
+          price_promo: number | null
           price_sell: number
           quality_badge_ids: string[]
           review_count: number
@@ -567,6 +597,7 @@ export type Database = {
           name_original?: string | null
           name_seo: string
           price_original: number
+          price_promo?: number | null
           price_sell: number
           quality_badge_ids?: string[]
           review_count?: number
@@ -597,6 +628,7 @@ export type Database = {
           name_original?: string | null
           name_seo?: string
           price_original?: number
+          price_promo?: number | null
           price_sell?: number
           quality_badge_ids?: string[]
           review_count?: number

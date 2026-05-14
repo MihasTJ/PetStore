@@ -2,13 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import type { Database, ProductWithRelations } from "@/types/database";
 
 type HealthTag = Database["public"]["Tables"]["products"]["Row"]["health_tags"][number];
-type LifeStage = Database["public"]["Tables"]["products"]["Row"]["life_stage"][number];
 type Species = Database["public"]["Tables"]["products"]["Row"]["species"][number];
 
 export interface ProductFilters {
   species?: Species;
   health_tags?: HealthTag[];
-  life_stage?: LifeStage;
+  life_stage?: string[];
+  breed_tags?: string[];
   is_premium_verified?: boolean;
   category_id?: string;
   search?: string;
@@ -36,8 +36,13 @@ export async function getProducts(filters: ProductFilters = {}) {
   if (filters.species) {
     query = query.contains("species", [filters.species]);
   }
-  if (filters.life_stage) {
-    query = query.contains("life_stage", [filters.life_stage]);
+  if (filters.life_stage && filters.life_stage.length > 0) {
+    query = query.overlaps("life_stage", filters.life_stage);
+  }
+  if (filters.breed_tags && filters.breed_tags.length > 0) {
+    // Products matching the breed OR with empty breed_tags (universal — no breed restriction)
+    const breedList = filters.breed_tags.map(b => b.replace(/[{}"\\]/g, "")).join(",")
+    query = query.or(`breed_tags.ov.{${breedList}},breed_tags.eq.{}`)
   }
   if (filters.health_tags && filters.health_tags.length > 0) {
     query = query.overlaps("health_tags", filters.health_tags);
@@ -83,6 +88,33 @@ export async function getProductBySlug(
   }
 
   return data as ProductWithRelations;
+}
+
+export async function getCategories() {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name, slug")
+    .is("parent_id", null)
+    .order("name")
+  if (error) throw error
+  return data
+}
+
+export async function getBreedTags(): Promise<string[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("products")
+    .select("breed_tags")
+    .eq("is_active", true)
+  if (error) throw error
+  const tags = new Set<string>()
+  for (const row of data ?? []) {
+    for (const tag of row.breed_tags ?? []) {
+      if (tag) tags.add(tag)
+    }
+  }
+  return Array.from(tags).sort()
 }
 
 export async function getFeaturedProducts(limit = 6) {

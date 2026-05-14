@@ -11,6 +11,8 @@ type CreateProductInput = {
   description_seo?: string
   species?: string[]
   health_tags?: string[]
+  life_stage?: string[]
+  breed_tags?: string[]
   is_premium_verified?: boolean
   status?: string
   category_id?: string | null
@@ -35,7 +37,7 @@ export async function getAdminProducts() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("products")
-    .select("id, name_seo, name_original, slug, price_sell, stock, status, is_premium_verified, health_tags, species, updated_at, category_id, categories(name)")
+    .select("id, name_seo, name_original, slug, price_sell, price_promo, stock, status, is_premium_verified, health_tags, species, life_stage, breed_tags, updated_at, category_id, categories(name)")
     .order("created_at", { ascending: false })
   if (error) {
     console.error("[admin] getAdminProducts error:", error)
@@ -44,17 +46,33 @@ export async function getAdminProducts() {
   return data ?? []
 }
 
+export async function getLowestPrice30d(productId: string): Promise<number | null> {
+  const supabase = createAdminClient()
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const { data } = await supabase
+    .from("product_price_history")
+    .select("price_sell")
+    .eq("product_id", productId)
+    .gte("recorded_at", cutoff)
+    .order("price_sell", { ascending: true })
+    .limit(1)
+  return data?.[0]?.price_sell ?? null
+}
+
 export async function updateProduct(
   id: string,
   input: {
     name_seo?: string
     slug?: string
     price_sell?: number
+    price_promo?: number | null
     stock?: number
     status?: string
     is_premium_verified?: boolean
     health_tags?: string[]
     species?: string[]
+    life_stage?: string[]
+    breed_tags?: string[]
     category_id?: string | null
   }
 ): Promise<{ ok: true } | { error: string }> {
@@ -64,7 +82,7 @@ export async function updateProduct(
   // Fetch current values to build diff
   const { data: current } = await supabase
     .from("products")
-    .select("name_seo, slug, price_sell, stock, status, is_premium_verified, health_tags, species, category_id")
+    .select("name_seo, slug, price_sell, price_promo, stock, status, is_premium_verified, health_tags, species, life_stage, breed_tags, category_id")
     .eq("id", id)
     .single()
 
@@ -72,11 +90,14 @@ export async function updateProduct(
     name_seo?: string
     slug?: string
     price_sell?: number
+    price_promo?: number | null
     stock?: number
     status?: string
     is_premium_verified?: boolean
     health_tags?: string[]
     species?: string[]
+    life_stage?: string[]
+    breed_tags?: string[]
     category_id?: string | null
     is_active?: boolean
     updated_at: string
@@ -84,10 +105,13 @@ export async function updateProduct(
     ...(input.name_seo !== undefined && { name_seo: input.name_seo }),
     ...(input.slug !== undefined && { slug: input.slug }),
     ...(input.price_sell !== undefined && { price_sell: input.price_sell }),
+    ...("price_promo" in input && { price_promo: input.price_promo ?? null }),
     ...(input.stock !== undefined && { stock: input.stock }),
     ...(input.is_premium_verified !== undefined && { is_premium_verified: input.is_premium_verified }),
     ...(input.health_tags !== undefined && { health_tags: input.health_tags }),
     ...(input.species !== undefined && { species: input.species }),
+    ...(input.life_stage !== undefined && { life_stage: input.life_stage }),
+    ...(input.breed_tags !== undefined && { breed_tags: input.breed_tags }),
     ...("category_id" in input && { category_id: input.category_id ?? null }),
     ...(dbStatus !== undefined && { status: dbStatus }),
     updated_at: new Date().toISOString(),
@@ -108,6 +132,14 @@ export async function updateProduct(
       lines.push("Zmieniono slug URL")
     if (input.price_sell !== undefined && input.price_sell !== current.price_sell)
       lines.push(`Cena: ${current.price_sell} → ${input.price_sell} PLN`)
+    if ("price_promo" in input) {
+      const prev = (current as { price_promo?: number | null }).price_promo ?? null
+      const next = input.price_promo ?? null
+      if (prev !== next) {
+        if (next !== null) lines.push(`Promocja: ${next} PLN (regularna ${input.price_sell ?? current.price_sell} PLN)`)
+        else lines.push("Usunięto cenę promocyjną")
+      }
+    }
     if (input.stock !== undefined && input.stock !== current.stock)
       lines.push(`Stan magazynowy: ${current.stock} → ${input.stock} szt.`)
     if (dbStatus !== undefined && dbStatus !== current.status)
@@ -118,6 +150,10 @@ export async function updateProduct(
       lines.push("Zaktualizowano tagi zdrowotne")
     if (input.species !== undefined && JSON.stringify(input.species.sort()) !== JSON.stringify((current.species as string[] ?? []).sort()))
       lines.push("Zmieniono gatunki")
+    if (input.life_stage !== undefined && JSON.stringify(input.life_stage.sort()) !== JSON.stringify((current.life_stage as string[] ?? []).sort()))
+      lines.push("Zaktualizowano etap życia")
+    if (input.breed_tags !== undefined && JSON.stringify(input.breed_tags.sort()) !== JSON.stringify((current.breed_tags as string[] ?? []).sort()))
+      lines.push("Zaktualizowano tagi ras")
     if ("category_id" in input && (input.category_id ?? null) !== (current.category_id ?? null))
       lines.push("Zmieniono kategorię")
 
@@ -172,6 +208,8 @@ export async function createProduct(
       description_seo: input.description_seo ?? null,
       species: input.species ?? [],
       health_tags: input.health_tags ?? [],
+      life_stage: input.life_stage ?? [],
+      breed_tags: input.breed_tags ?? [],
       is_premium_verified: input.is_premium_verified ?? false,
       status: dbStatus,
       is_active: (input.stock ?? 0) > 0 && dbStatus === "active",

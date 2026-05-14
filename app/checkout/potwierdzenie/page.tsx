@@ -1,5 +1,6 @@
 import { ShieldCheck, Mail, Package, Truck, ArrowRight, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
+import { ShareButton } from "@/components/share-button";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { PendingPoller } from "./pending-poller";
 
@@ -189,10 +190,28 @@ export default async function PotwierdzeniePage({
           </div>
         </div>
 
-        <p className="text-sm leading-body text-ink-muted mb-12 max-w-md">
+        <p className="text-sm leading-body text-ink-muted mb-10 max-w-md">
           Pamiętaj — masz 30 dni na zwrot bez żadnych pytań.
           Jeśli pupil nie zaakceptuje produktu, zwracamy pełną kwotę.
         </p>
+
+        {/* ── Share section ─────────────────────────────────────── */}
+        <div className="mb-12 max-w-lg rounded-card-sm border border-border-warm bg-warm-island px-6 py-5">
+          <p className="text-sm font-medium text-ink mb-1">
+            Podziel się z innymi Pet Parents
+          </p>
+          <p className="text-xs leading-body text-ink-muted mb-4">
+            Twój pupil zacznie czuć różnicę za kilka tygodni.
+            Może ktoś bliski też szuka czegoś sprawdzonego dla swojego zwierzęcia.
+          </p>
+          <ShareButton
+            productName={petName ? `Premium dla ${petName}` : "Premium Pet Care — Nobile"}
+            productSlug="produkty"
+            shareUrl="/produkty"
+            variant="confirmation"
+            petName={petName}
+          />
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
           <Link

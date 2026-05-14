@@ -5,6 +5,7 @@ import { ProductCertificates } from "@/components/product-certificates"
 import { ProductDoseCalculator } from "@/components/product-dose-calculator"
 import { AddToCartButton } from "@/components/add-to-cart-button"
 import { IngredientCard } from "@/components/ingredient-card"
+import { ShareButton } from "@/components/share-button"
 import { createClient } from "@/lib/supabase/server"
 import { getProductBySlug } from "@/lib/supabase/queries/products"
 import type { BrandExpert } from "@/types/database"
@@ -88,8 +89,50 @@ export default async function ProductPage({
     reviews = (data ?? []) as ReviewWithProfile[]
   }
 
+  // Formula fallback author — Wiktor from endorsements or brand_experts table
+  type ExpertBasic = { name: string; role: string; ai_generated_avatar_url: string | null }
+  let formulaAuthor: ExpertBasic | null = null
+  if (reviewCount < 5) {
+    const wiktorsEndorsement = endorsements.find(
+      e => e.brand_experts?.name?.toLowerCase().includes("wiktor")
+    )
+    if (wiktorsEndorsement?.brand_experts) {
+      formulaAuthor = wiktorsEndorsement.brand_experts
+    } else {
+      const { data } = await supabase
+        .from("brand_experts")
+        .select("name, role, ai_generated_avatar_url")
+        .eq("is_active", true)
+        .ilike("name", "%wiktor%")
+        .maybeSingle()
+      formulaAuthor = data ?? null
+    }
+  }
+
+  const wiktorsEndorsement = endorsements.find(
+    e => e.brand_experts?.name?.toLowerCase().includes("wiktor")
+  ) ?? null
+  const highlightedIngredients = product.product_ingredients.filter(i => i.is_highlighted)
+
   const isAvailable = product.stock > 0
   const avgStars = avgRating(reviews)
+
+  // Omnibus: najniższa cena z 30 dni — wymagana przy promocji
+  let lowestPrice30d: number | null = null
+  if (product.price_promo !== null && product.price_promo !== undefined) {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: priceHistory } = await supabase
+      .from("product_price_history")
+      .select("price_sell")
+      .eq("product_id", product.id)
+      .gte("recorded_at", cutoff)
+      .order("price_sell", { ascending: true })
+      .limit(1)
+    const historicMin = priceHistory?.[0]?.price_sell ?? null
+    lowestPrice30d = historicMin !== null
+      ? Math.min(Number(historicMin), product.price_sell)
+      : product.price_sell
+  }
 
   return (
     <main className="bg-canvas">
@@ -221,13 +264,42 @@ export default async function ProductPage({
 
             {/* Cena */}
             <div className="mt-8 pb-8 border-b border-border-warm">
-              <p className="font-tnum text-[2rem] font-medium text-ink leading-none">
-                {fmtPrice(product.price_sell)}
-              </p>
-              {product.daily_price_pln && (
-                <p className="mt-2 text-sm text-ink-muted">
-                  {fmtPrice(product.daily_price_pln)} dziennie — tyle co kawa, dla zdrowia Twojego pupila
-                </p>
+              {product.price_promo !== null && product.price_promo !== undefined ? (
+                <>
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <p className="font-tnum text-[2rem] font-medium text-terracotta leading-none">
+                      {fmtPrice(product.price_promo)}
+                    </p>
+                    <p className="font-tnum text-xl text-ink-muted line-through leading-none">
+                      {fmtPrice(product.price_sell)}
+                    </p>
+                    <span className="rounded-tag px-2.5 py-1 text-[11px] font-medium text-terracotta"
+                      style={{ backgroundColor: "rgba(184,101,74,0.1)" }}>
+                      -{Math.round((1 - product.price_promo / product.price_sell) * 100)}%
+                    </span>
+                  </div>
+                  {lowestPrice30d !== null && (
+                    <p className="mt-2 text-xs text-ink-subtle">
+                      Najniższa cena z ostatnich 30 dni: {fmtPrice(lowestPrice30d)}
+                    </p>
+                  )}
+                  {product.daily_price_pln && (
+                    <p className="mt-1.5 text-sm text-ink-muted">
+                      {fmtPrice(product.daily_price_pln)} dziennie — tyle co kawa, dla zdrowia Twojego pupila
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="font-tnum text-[2rem] font-medium text-ink leading-none">
+                    {fmtPrice(product.price_sell)}
+                  </p>
+                  {product.daily_price_pln && (
+                    <p className="mt-2 text-sm text-ink-muted">
+                      {fmtPrice(product.daily_price_pln)} dziennie — tyle co kawa, dla zdrowia Twojego pupila
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
@@ -263,6 +335,15 @@ export default async function ProductPage({
             <div className="mt-6 flex items-center gap-2 text-sm text-ink-muted">
               <Truck size={15} className="text-ink-subtle shrink-0" />
               <span>Wysyłka w 24h · Jeśli pupil nie zaakceptuje — zwrot bez pytań</span>
+            </div>
+
+            {/* Share */}
+            <div className="mt-5">
+              <ShareButton
+                productName={product.name_seo}
+                productSlug={product.slug}
+                variant="product"
+              />
             </div>
           </div>
 
@@ -331,29 +412,92 @@ export default async function ProductPage({
           </div>
         </section>
       ) : (
-        /* Brak wystarczającej liczby opinii — pokaż dane o formule */
+        /* Fallback: Co mówią dane o tej formule — autorstwa Wiktora */
         <section className="bg-warm-island">
           <div className="mx-auto max-w-editorial px-6 py-16 md:px-12 md:py-20">
-            <p className="mb-5 text-xs font-medium tracking-eyebrow text-ink-muted uppercase">
-              Co mówią dane
-            </p>
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
-              <div className="md:col-span-6">
+
+            <div className="grid grid-cols-1 gap-12 md:grid-cols-12">
+
+              {/* Lewa kolumna — nagłówek + autor */}
+              <div className="md:col-span-5">
+                <p className="mb-5 text-xs font-medium tracking-eyebrow text-ink-muted uppercase">
+                  Analiza formuły
+                </p>
                 <h2 className="font-serif font-normal leading-editorial text-ink text-3xl md:text-4xl">
                   Co mówią dane<br />o tej formule.
                 </h2>
-              </div>
-              <div className="md:col-span-5 md:col-start-8 flex flex-col justify-center">
-                <p className="text-base leading-body text-ink-muted">
-                  {product.description_seo
-                    ? product.description_seo
-                    : "Ten produkt jest nowy w naszym sklepie. Dane opinii pojawią się po zebraniu wystarczającej liczby zweryfikowanych zakupów."}
+
+                {/* Wiktor jako autor sekcji */}
+                <div className="mt-8 flex items-center gap-4">
+                  {formulaAuthor?.ai_generated_avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={formulaAuthor.ai_generated_avatar_url}
+                      alt={formulaAuthor.name}
+                      className="shrink-0 w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="shrink-0 w-10 h-10 rounded-full bg-canvas flex items-center justify-center">
+                      <span className="font-serif text-lg font-normal text-ink-muted">W</span>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-ink">
+                      {formulaAuthor?.name ?? "Wiktor"}
+                    </p>
+                    <p className="text-xs text-ink-muted">
+                      {formulaAuthor?.role ?? "Główny Analityk Formuł Żywieniowych"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cytat Wiktora z endorsementu (jeśli istnieje) */}
+                {wiktorsEndorsement && (
+                  <blockquote className="mt-6 pl-4 border-l-2 border-terracotta/30 font-serif italic text-lg leading-body text-ink">
+                    „{wiktorsEndorsement.quote}"
+                  </blockquote>
+                )}
+
+                <p className="mt-6 flex items-start gap-2 text-xs text-ink-subtle">
+                  <Info size={12} className="shrink-0 mt-0.5" />
+                  Opinie od właścicieli pojawią się po zebraniu wystarczającej liczby zweryfikowanych zakupów.
                 </p>
-                <p className="mt-4 text-sm text-ink-subtle flex items-center gap-2">
-                  <Info size={13} className="shrink-0" />
-                  Opinie wyświetlimy, gdy zbierzemy ich wystarczająco dużo, by były miarodajne.
-                </p>
               </div>
+
+              {/* Prawa kolumna — kluczowe składniki jako dane */}
+              <div className="md:col-span-6 md:col-start-7">
+                {highlightedIngredients.length > 0 ? (
+                  <div className="space-y-3">
+                    {highlightedIngredients.map((ing) => (
+                      <div
+                        key={ing.id}
+                        className="bg-canvas rounded-card-sm p-5"
+                      >
+                        <div className="flex items-center gap-2.5 mb-2">
+                          <span className="block w-1.5 h-1.5 rounded-full bg-moss shrink-0" />
+                          <p className="text-sm font-medium text-ink">
+                            {ing.ingredient_name}
+                          </p>
+                        </div>
+                        {ing.ingredient_description && (
+                          <p className="pl-4 text-sm leading-body text-ink-muted">
+                            {ing.ingredient_description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : product.description_seo ? (
+                  <p className="text-base leading-body text-ink-muted">
+                    {product.description_seo}
+                  </p>
+                ) : (
+                  <p className="text-base leading-body text-ink-muted">
+                    Szczegółowa analiza składu zostanie opublikowana wkrótce przez Wiktora.
+                  </p>
+                )}
+              </div>
+
             </div>
           </div>
         </section>

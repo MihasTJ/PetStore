@@ -4,7 +4,7 @@ import { HealthQuiz } from "@/components/quiz/health-quiz";
 export const metadata: Metadata = {
   title: "Quiz zdrowotny — Premium Pet Care",
   description:
-    "Sprawdź, czego potrzebuje Twój pupil. Bezpłatny quiz zdrowotny w 3 minuty — personalizowany raport i rekomendacje weterynaryjne.",
+    "Sprawdź, czego potrzebuje Twój pupil. Bezpłatny quiz zdrowotny w 3 minuty — personalizowany raport i rekomendacje dobrane przez naszych Kuratorów.",
 };
 
 export default function QuizPage() {

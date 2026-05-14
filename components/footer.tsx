@@ -12,7 +12,8 @@ const shopLinks = [
 const infoLinks = [
   { label: "Regulamin", href: "/regulamin" },
   { label: "Polityka prywatności", href: "/polityka-prywatnosci" },
-  { label: "Zwroty i reklamacje", href: "/zwroty" },
+  { label: "Zwroty", href: "/zwroty" },
+  { label: "Reklamacje", href: "/reklamacje" },
   { label: "Kontakt", href: "/kontakt" },
 ];
 

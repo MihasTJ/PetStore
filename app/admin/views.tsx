@@ -11,7 +11,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: ViewId) => void 
     <div className="page fade-in">
       <div className="page-header">
         <div>
-          <div className="page-eyebrow">Dzień dobry · Wtorek, 5 maja</div>
+          <div className="page-eyebrow">Dzień dobry · {new Date().toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" })}</div>
           <h1 className="page-title">Spokój ducha,<br/>w liczbach.</h1>
         </div>
       </div>

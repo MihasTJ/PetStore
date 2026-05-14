@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import Link from "next/link"
 import { ShieldCheck, ArrowRight } from "lucide-react"
-import { getProducts } from "@/lib/supabase/queries/products"
+import { getProducts, getCategories, getBreedTags } from "@/lib/supabase/queries/products"
 import { ProductCard } from "@/components/product-card"
 import { ProductFilters } from "./product-filters"
 
@@ -15,6 +15,12 @@ function fmtPrice(n: number) {
   return n.toFixed(2).replace(".", ",") + " zł"
 }
 
+const ETAP_TO_LIFE_STAGE: Record<string, string[]> = {
+  "szczenie": ["Szczenię", "Kocię"],
+  "dorosly":  ["Dorosły"],
+  "senior":   ["Senior"],
+}
+
 export default async function ProduktyPage({
   searchParams,
 }: {
@@ -22,26 +28,43 @@ export default async function ProduktyPage({
 }) {
   const sp = await searchParams
 
-  const species    = typeof sp.gatunek === "string" ? sp.gatunek : undefined
-  const tagsRaw    = typeof sp.tagi    === "string" ? sp.tagi    : ""
-  const healthTags = tagsRaw ? tagsRaw.split(",").filter(Boolean) : undefined
-  const isPremium  = sp.premium === "1"
+  const categorySlug = typeof sp.kategoria === "string" ? sp.kategoria : undefined
+  const species      = typeof sp.gatunek   === "string" ? sp.gatunek   : undefined
+  const etap         = typeof sp.etap      === "string" ? sp.etap      : undefined
+  const rasa         = typeof sp.rasa      === "string" ? sp.rasa      : undefined
+  const tagsRaw      = typeof sp.tagi      === "string" ? sp.tagi      : ""
+  const healthTags   = tagsRaw ? tagsRaw.split(",").filter(Boolean) : undefined
+  const isPremium    = sp.premium === "1"
+
+  const [categories, breedTags] = await Promise.all([
+    getCategories().catch(() => [] as Awaited<ReturnType<typeof getCategories>>),
+    getBreedTags().catch(() => [] as string[]),
+  ])
+
+  const categoryId = categorySlug
+    ? categories.find(c => c.slug === categorySlug)?.id
+    : undefined
+
+  const lifeStageFilter = etap ? ETAP_TO_LIFE_STAGE[etap] : undefined
 
   let products: Awaited<ReturnType<typeof getProducts>> = []
   try {
     products = await getProducts({
-      species:            species || undefined,
-      health_tags:        healthTags?.length ? healthTags : undefined,
+      category_id:         categoryId,
+      species:             species || undefined,
+      life_stage:          lifeStageFilter,
+      breed_tags:          rasa ? [rasa] : undefined,
+      health_tags:         healthTags?.length ? healthTags : undefined,
       is_premium_verified: isPremium || undefined,
     })
   } catch {
     products = []
   }
 
-  const hasFilters = Boolean(species || healthTags?.length || isPremium)
+  const hasFilters = Boolean(categorySlug || species || etap || rasa || healthTags?.length || isPremium)
 
   return (
-    <main className="bg-canvas min-h-screen">
+    <main className="bg-canvas min-h-screen overflow-x-hidden">
 
       {/* ── HERO ─────────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-editorial px-6 pt-28 pb-10 md:px-12 md:pt-36 md:pb-14">
@@ -77,7 +100,7 @@ export default async function ProduktyPage({
       <div className="sticky top-[64px] z-30 border-y border-border-warm bg-warm-island/96 backdrop-blur-sm">
         <div className="mx-auto max-w-editorial px-6 md:px-12">
           <Suspense fallback={<div className="h-[54px]" />}>
-            <ProductFilters />
+            <ProductFilters categories={categories} breedTags={breedTags} />
           </Suspense>
         </div>
       </div>
@@ -86,7 +109,7 @@ export default async function ProduktyPage({
       <section className="mx-auto max-w-editorial px-6 py-12 md:px-12 md:py-16">
 
         {products.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
             {products.map((product) => (
               <ProductCard
                 key={product.id}
@@ -96,6 +119,8 @@ export default async function ProduktyPage({
                 description={product.description_seo ?? ""}
                 price={fmtPrice(product.price_sell)}
                 priceNumeric={product.price_sell}
+                pricePromo={(product as { price_promo?: number | null }).price_promo ?? null}
+                category={(product.categories as { name: string } | null)?.name ?? null}
                 weight={product.usage_days ? `${product.usage_days} porcji` : ""}
                 healthTags={product.health_tags ?? []}
                 isPremiumVerified={product.is_premium_verified}

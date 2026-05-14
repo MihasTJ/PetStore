@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Shield, Info, BadgeCheck, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Shield, Info, BadgeCheck, Check, ShoppingBag, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BreedCombobox } from "@/components/breed-combobox";
 import {
@@ -17,6 +17,7 @@ import {
   type ProductRecommendation,
 } from "@/lib/quiz-engine";
 import { submitQuiz } from "@/lib/actions/quiz";
+import { useCart } from "@/lib/cart";
 
 // ── Types ───────────────────────────────────────────────────────────
 type Step =
@@ -538,22 +539,35 @@ function HealthAreaBar({ area, index }: { area: HealthArea; index: number }) {
   );
 }
 
-function RecommendationCard({ rec, petName }: { rec: ProductRecommendation; petName: string }) {
-  const name = petName === "Twój pupil" ? "pupila" : petName;
+function parseQuizPrice(priceStr: string): number {
+  return parseFloat(priceStr.replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+}
+
+function RecommendationCard({ rec }: { rec: ProductRecommendation }) {
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+
+  function handleAdd() {
+    if (added) return;
+    addItem({ id: rec.id, slug: rec.slug, name: rec.name, price: parseQuizPrice(rec.price), weight: "", stock: 9999 });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2100);
+  }
+
   return (
     <div className="bg-card-warm rounded-card-sm p-5 shadow-warm flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <span
-              className="text-[11px] font-medium tracking-eyebrow text-moss uppercase flex items-center gap-1"
-            >
+            <span className="text-[11px] font-medium tracking-eyebrow text-moss uppercase flex items-center gap-1">
               <BadgeCheck size={12} />
               {rec.matchScore}% dopasowania
             </span>
           </div>
           <h4 className="font-serif font-normal text-xl text-ink leading-tight">
-            {rec.name}
+            <a href={`/products/${rec.slug}`} className="hover:opacity-70 transition-opacity">
+              {rec.name}
+            </a>
           </h4>
         </div>
         <p className="font-tnum text-xl font-medium text-ink shrink-0">{rec.price}</p>
@@ -563,22 +577,36 @@ function RecommendationCard({ rec, petName }: { rec: ProductRecommendation; petN
 
       <div className="flex flex-wrap gap-1.5">
         {rec.healthTags.map((tag) => (
-          <span
-            key={tag}
-            className="rounded-tag px-2.5 py-1 text-[11px] font-medium bg-warm-island text-ink-muted"
-          >
+          <span key={tag} className="rounded-tag px-2.5 py-1 text-[11px] font-medium bg-warm-island text-ink-muted">
             {tag}
           </span>
         ))}
       </div>
 
-      <a
-        href={`/products/${rec.slug}`}
-        className="mt-auto inline-flex items-center justify-center rounded-button bg-terracotta px-5 py-2.5 text-sm font-medium text-card-warm hover:bg-terracotta-hover transition-colors"
-      >
-        Dodaj dla pupila
-        <ChevronRight size={15} className="ml-1.5" />
-      </a>
+      <div className="mt-auto relative">
+        {added && (
+          <span className="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none inline-flex items-center gap-1.5 whitespace-nowrap rounded-tag bg-moss px-3 py-1.5 text-xs font-medium text-card-warm shadow-warm-md animate-cart-toast">
+            <CheckCheck size={12} strokeWidth={2} />
+            Dodano do koszyka
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleAdd}
+          className={cn(
+            "w-full inline-flex items-center justify-center gap-2 rounded-button px-5 py-2.5 text-sm font-medium transition-colors cursor-pointer",
+            added ? "bg-moss text-card-warm" : "bg-terracotta text-card-warm hover:bg-terracotta-hover"
+          )}
+        >
+          <span key={String(added)} className="inline-flex items-center gap-2 animate-in zoom-in-75 fade-in duration-150">
+            {added ? (
+              <><Check size={15} strokeWidth={2} />Dodano do koszyka</>
+            ) : (
+              <><ShoppingBag size={15} />Dodaj do koszyka</>
+            )}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -648,7 +676,7 @@ function Results({
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {report.recommendations.map((rec) => (
-            <RecommendationCard key={rec.id} rec={rec} petName={report.petName} />
+            <RecommendationCard key={rec.id} rec={rec} />
           ))}
         </div>
       </div>

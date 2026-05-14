@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Product, ProductStatus } from "./types";
 import { HealthTag, Icon, StatusPill, Toggle } from "./ui";
-import { createProduct, getAdminProducts, updateProduct, getProductIngredients, addIngredient, updateIngredient, deleteIngredient, reorderIngredients, getProductChangelog, type ChangelogEntry } from "@/lib/actions/products";
+import { createProduct, getAdminProducts, updateProduct, getProductIngredients, addIngredient, updateIngredient, deleteIngredient, reorderIngredients, getProductChangelog, getLowestPrice30d, type ChangelogEntry } from "@/lib/actions/products";
 import { getCategories, type CategoryRow } from "@/lib/actions/categories";
 import { getProductEndorsement, saveProductEndorsement, getExperts, getProductCertificates, addProductCertificate, deleteProductCertificate, uploadCertificateFile } from "@/lib/actions/endorsements";
 import type { ExpertRow } from "@/lib/actions/endorsements";
@@ -77,6 +77,7 @@ function toAdminProduct(p: Awaited<ReturnType<typeof getAdminProducts>>[number])
     original: (p.name_original as string | null) ?? p.name_seo,
     supplier: "—",
     price: p.price_sell,
+    price_promo: (p as { price_promo?: number | null }).price_promo ?? null,
     stock: p.stock,
     status: toUiStatus(p.status),
     is_premium_verified: p.is_premium_verified,
@@ -85,6 +86,8 @@ function toAdminProduct(p: Awaited<ReturnType<typeof getAdminProducts>>[number])
     category_id: (p as { category_id?: string | null }).category_id ?? null,
     species: ((p.species as string[]) ?? []).join(" / ") || "—",
     health: (p.health_tags as string[]) ?? [],
+    life_stage: (p.life_stage as string[]) ?? [],
+    breed_tags: (p.breed_tags as string[]) ?? [],
     updated: new Date(p.updated_at).toLocaleDateString("pl-PL", { day: "numeric", month: "short" }),
     img: p.name_seo.slice(0, 9),
   };
@@ -95,6 +98,8 @@ const HEALTH_TAGS_LIST = [
 ] as const;
 
 const SPECIES_LIST = ["Pies", "Kot"] as const;
+
+const LIFE_STAGES_LIST = ["Szczenię", "Kocię", "Dorosły", "Senior"] as const;
 
 // ── Ingredient inline form ────────────────────────────────────────────────────
 
@@ -308,7 +313,16 @@ export function ProductsView({ onOpenEditor, refreshKey }: { onOpenEditor: (p: P
                       )}
                     </div>
                   </td>
-                  <td style={{ textAlign: "right" }} className="tabular">{p.price} PLN</td>
+                  <td style={{ textAlign: "right" }} className="tabular">
+                    {p.price_promo !== null ? (
+                      <div>
+                        <div style={{ color: "var(--primary)", fontWeight: 600 }}>{p.price_promo} PLN</div>
+                        <div style={{ fontSize: 11, color: "var(--text-tertiary)", textDecoration: "line-through" }}>{p.price} PLN</div>
+                      </div>
+                    ) : (
+                      `${p.price} PLN`
+                    )}
+                  </td>
                   <td style={{ textAlign: "right" }} className="tabular">
                     <span style={{
                       color: p.stock === 0 ? "var(--error)" : p.stock < 10 ? "var(--primary)" : "var(--text-primary)",
@@ -365,6 +379,9 @@ function NewProductDrawer({ onClose, onCreated }: NewProductDrawerProps) {
   const [descSeo, setDescSeo]             = useState("");
   const [species, setSpecies]             = useState<string[]>([]);
   const [healthTags, setHealthTags]       = useState<string[]>([]);
+  const [lifeStage, setLifeStage]         = useState<string[]>([]);
+  const [breedTags, setBreedTags]         = useState<string[]>([]);
+  const [breedInput, setBreedInput]       = useState("");
   const [isPremiumVerified, setIsPremiumVerified] = useState(false);
   const [status, setStatus]               = useState<ProductStatus>("Draft");
   const [categoryId, setCategoryId]       = useState<string>("");
@@ -389,6 +406,16 @@ function NewProductDrawer({ onClose, onCreated }: NewProductDrawerProps) {
     setHealthTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
   }
 
+  function toggleLifeStageDraft(s: string) {
+    setLifeStage((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]);
+  }
+
+  function addBreedDraft() {
+    const val = breedInput.trim().replace(/,$/, "");
+    if (val && !breedTags.includes(val)) setBreedTags((prev) => [...prev, val]);
+    setBreedInput("");
+  }
+
   async function handleSave() {
     if (!name.trim())   { setErrorMsg("Podaj nazwę produktu."); return; }
     if (!slug.trim())   { setErrorMsg("Slug URL nie może być pusty."); return; }
@@ -409,6 +436,8 @@ function NewProductDrawer({ onClose, onCreated }: NewProductDrawerProps) {
         description_seo: descSeo.trim() || undefined,
         species,
         health_tags: healthTags,
+        life_stage: lifeStage,
+        breed_tags: breedTags,
         is_premium_verified: isPremiumVerified,
         status,
         category_id: categoryId || null,
@@ -522,6 +551,40 @@ function NewProductDrawer({ onClose, onCreated }: NewProductDrawerProps) {
                     ))}
                   </div>
                 </div>
+                <div>
+                  <div className="field-label" style={{ marginBottom: 8 }}>Etap życia</div>
+                  <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                    {LIFE_STAGES_LIST.map((s) => (
+                      <button key={s} className="btn btn-sm" onClick={() => toggleLifeStageDraft(s)} style={{ background: lifeStage.includes(s) ? "var(--primary-soft)" : "transparent", color: lifeStage.includes(s) ? "var(--primary)" : "var(--text-secondary)", border: `1px solid ${lifeStage.includes(s) ? "var(--primary)" : "var(--border)"}` }}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="field-label" style={{ marginBottom: 8 }}>Rasy <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>— opcjonalnie</span></div>
+                  {breedTags.length > 0 && (
+                    <div className="row" style={{ gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                      {breedTags.map((b) => (
+                        <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px", background: "var(--primary-soft)", borderRadius: 999, color: "var(--primary)" }}>
+                          {b}
+                          <button style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }} onClick={() => setBreedTags((prev) => prev.filter((x) => x !== b))}>
+                            <Icon name="x" size={10} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    className="input"
+                    placeholder="Np. Golden Retriever — Enter dodaje"
+                    value={breedInput}
+                    onChange={(e) => setBreedInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addBreedDraft(); } }}
+                    onBlur={addBreedDraft}
+                  />
+                  <div className="field-help">Wpisz rasę i naciśnij Enter. <strong>Zostaw puste</strong> → produkt pojawia się przy wszystkich rasach (obroże, akcesoria, karmy ogólne itp.).</div>
+                </div>
               </div>
             </div>
           </div>
@@ -605,6 +668,8 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
   const [slug, setSlug]               = useState(product.slug);
   const [stock, setStock]             = useState(product.stock);
   const [priceSell, setPriceSell]     = useState(String(product.price));
+  const [pricePromo, setPricePromo]   = useState(product.price_promo !== null ? String(product.price_promo) : "");
+  const [lowestPrice30d, setLowestPrice30d] = useState<number | null>(null);
   const [status, setStatus]           = useState<ProductStatus>(product.status);
   const [seoTitle, setSeoTitle]       = useState(`${product.name} | Premium Pet Care`);
   const [seoDesc, setSeoDesc]         = useState("Skład zweryfikowany przez weterynarza. Bezpieczny dla ras predysponowanych do alergii. Darmowa dostawa od 199 PLN.");
@@ -617,10 +682,13 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
   const [errorMsg, setErrorMsg]       = useState("");
 
   // Tags
-  const [healthTags, setHealthTags] = useState<string[]>(product.health);
+  const [healthTags, setHealthTags]   = useState<string[]>(product.health);
   const [speciesList, setSpeciesList] = useState<string[]>(
     product.species === "—" ? [] : product.species.split(" / ").filter(Boolean)
   );
+  const [lifeStageList, setLifeStageList] = useState<string[]>(product.life_stage);
+  const [breedTagsList, setBreedTagsList] = useState<string[]>(product.breed_tags);
+  const [breedEditorInput, setBreedEditorInput] = useState("");
 
   // Ingredients
   const [ingredients, setIngredients] = useState<DbIngredient[]>([]);
@@ -651,6 +719,9 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
   useEffect(() => {
     getCategories().then(setCategories).catch(() => {});
     getProductChangelog(product.id).then(setChangelog).catch(() => {});
+    getLowestPrice30d(product.id).then((v) => {
+      if (v !== null) setLowestPrice30d(v);
+    }).catch(() => {});
   }, [product.id]);
 
   useEffect(() => {
@@ -684,17 +755,26 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
 
   // ── Main save ──
   async function handleSave() {
+    const promoVal = pricePromo.trim() ? parseFloat(pricePromo) : null;
+    const sellVal  = parseFloat(priceSell) || product.price;
+    if (promoVal !== null && promoVal >= sellVal) {
+      setErrorMsg("Cena promocyjna musi być niższa od ceny regularnej.");
+      return;
+    }
     setSaving(true);
     setErrorMsg("");
     const result = await updateProduct(product.id, {
       name_seo: name.trim(),
       slug: slug.trim(),
-      price_sell: parseFloat(priceSell) || product.price,
+      price_sell: sellVal,
+      price_promo: promoVal,
       stock,
       status,
       is_premium_verified: isPremiumVerified,
       health_tags: healthTags,
       species: speciesList,
+      life_stage: lifeStageList,
+      breed_tags: breedTagsList,
       category_id: categoryId || null,
     });
     setSaving(false);
@@ -726,6 +806,15 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
       for (const s of suggestions) if (!next.includes(s)) next.push(s);
       return next;
     });
+  }
+
+  function toggleLifeStage(s: string) {
+    setLifeStageList((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]);
+  }
+  function addBreedEditor() {
+    const val = breedEditorInput.trim().replace(/,$/, "");
+    if (val && !breedTagsList.includes(val)) setBreedTagsList((prev) => [...prev, val]);
+    setBreedEditorInput("");
   }
 
   // ── Ingredient helpers ──
@@ -1135,6 +1224,68 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
               </div>
             </div>
 
+            {/* Cena promocyjna (Omnibus) */}
+            <div className="card-tight" style={{ borderLeft: pricePromo ? "3px solid var(--primary)" : undefined }}>
+              <div className="row-between" style={{ marginBottom: 12 }}>
+                <div className="eyebrow eyebrow-rust">Cena promocyjna</div>
+                {pricePromo && (
+                  <button
+                    className="btn btn-quiet btn-sm"
+                    style={{ fontSize: 11, color: "var(--text-tertiary)" }}
+                    onClick={() => setPricePromo("")}
+                  >
+                    <Icon name="x" size={11} /> Usuń promocję
+                  </button>
+                )}
+              </div>
+              <div className="col" style={{ gap: 12 }}>
+                <div className="field">
+                  <div className="field-label">Cena po obniżce</div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <input
+                      className="input tabular"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Zostaw puste = brak promocji"
+                      value={pricePromo}
+                      onChange={(e) => setPricePromo(e.target.value)}
+                    />
+                    <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>PLN</span>
+                  </div>
+                </div>
+
+                {pricePromo && parseFloat(pricePromo) > 0 && parseFloat(priceSell) > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div style={{ padding: "10px 12px", background: "var(--primary-soft)", borderRadius: 8 }}>
+                      <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginBottom: 2 }}>Cena regularna</div>
+                      <div className="tabular" style={{ fontSize: 15, fontWeight: 500, textDecoration: "line-through", color: "var(--text-secondary)" }}>
+                        {parseFloat(priceSell).toFixed(2)} PLN
+                      </div>
+                    </div>
+                    <div style={{ padding: "10px 12px", background: "var(--primary-soft)", borderRadius: 8 }}>
+                      <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginBottom: 2 }}>Oszczędność</div>
+                      <div className="tabular" style={{ fontSize: 15, fontWeight: 600, color: "var(--primary)" }}>
+                        -{Math.round((1 - parseFloat(pricePromo) / parseFloat(priceSell)) * 100)}%
+                        <span style={{ fontSize: 11, fontWeight: 400, marginLeft: 4 }}>
+                          ({(parseFloat(priceSell) - parseFloat(pricePromo)).toFixed(2)} PLN)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ padding: "10px 12px", background: "rgba(61,79,61,0.06)", borderRadius: 8, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  <div style={{ fontWeight: 500, color: "var(--secondary)", marginBottom: 2 }}>Dyrektywa Omnibus (automatycznie)</div>
+                  {lowestPrice30d !== null ? (
+                    <span>Najniższa cena z 30 dni: <strong>{lowestPrice30d.toFixed(2)} PLN</strong> — wyświetlana pod ceną na stronie produktu.</span>
+                  ) : (
+                    <span>Najniższa cena z 30 dni zostanie obliczona automatycznie i wyświetlona na stronie produktu.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Kategoria + tagi zdrowotne i gatunki */}
             <div className="card-tight">
               <div className="eyebrow" style={{ marginBottom: 12 }}>Klasyfikacja</div>
@@ -1176,6 +1327,40 @@ export function ProductEditor({ product, onClose, onSaved }: { product: Product;
                       </button>
                     ))}
                   </div>
+                </div>
+                <div>
+                  <div className="field-label" style={{ marginBottom: 6 }}>Etap życia</div>
+                  <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                    {LIFE_STAGES_LIST.map((s) => (
+                      <button key={s} className="btn btn-sm" onClick={() => toggleLifeStage(s)} style={{ background: lifeStageList.includes(s) ? "var(--primary-soft)" : "transparent", color: lifeStageList.includes(s) ? "var(--primary)" : "var(--text-secondary)", border: `1px solid ${lifeStageList.includes(s) ? "var(--primary)" : "var(--border)"}` }}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="field-label" style={{ marginBottom: 6 }}>Rasy <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>— opcjonalnie</span></div>
+                  {breedTagsList.length > 0 && (
+                    <div className="row" style={{ gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                      {breedTagsList.map((b) => (
+                        <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px", background: "var(--primary-soft)", borderRadius: 999, color: "var(--primary)" }}>
+                          {b}
+                          <button style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }} onClick={() => setBreedTagsList((prev) => prev.filter((x) => x !== b))}>
+                            <Icon name="x" size={10} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    className="input"
+                    placeholder="Np. Golden Retriever — Enter dodaje"
+                    value={breedEditorInput}
+                    onChange={(e) => setBreedEditorInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addBreedEditor(); } }}
+                    onBlur={addBreedEditor}
+                  />
+                  <div className="field-help">Wpisz rasę i naciśnij Enter. <strong>Zostaw puste</strong> → produkt pojawia się przy wszystkich rasach (obroże, akcesoria, karmy ogólne itp.).</div>
                 </div>
               </div>
             </div>

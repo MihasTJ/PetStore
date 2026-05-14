@@ -1,17 +1,22 @@
-import { ORDERS, PRODUCTS } from "./data";
+import { PRODUCTS } from "./data";
 import type { ViewId } from "./types";
 import { Icon, PetAvatar, Sparkline, StatusPill } from "./ui";
-import type { DashboardStats } from "@/lib/actions/dashboard";
+import type { DashboardStats, FunnelStage, RecentOrder } from "@/lib/actions/dashboard";
 
-function FunnelChart() {
-  const stages = [
-    { label: "Sesje",               value: 14820, pct: 100  },
-    { label: "Quiz rozpoczęty",     value: 3210,  pct: 21.6 },
-    { label: "Quiz ukończony",      value: 2074,  pct: 14.0 },
-    { label: "Raport otwarty",      value: 1582,  pct: 10.7 },
-    { label: "Dodano do koszyka",   value: 738,   pct: 4.98 },
-    { label: "Zakup",               value: 589,   pct: 3.97 },
-  ];
+function FunnelChart({ stages }: { stages: FunnelStage[] | null }) {
+  if (!stages) {
+    return (
+      <div className="col" style={{ gap: 8 }}>
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="row" style={{ gap: 16, alignItems: "center" }}>
+            <div style={{ width: 160, height: 14, background: "var(--border)", borderRadius: 4 }} />
+            <div style={{ flex: 1, height: 28, background: "var(--border)", borderRadius: 6, opacity: 0.5 }} />
+            <div style={{ width: 60, height: 14, background: "var(--border)", borderRadius: 4 }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="col" style={{ gap: 8 }}>
       {stages.map((s, i) => (
@@ -24,7 +29,7 @@ function FunnelChart() {
                 top: 0,
                 left: 0,
                 height: "100%",
-                width: `${s.pct}%`,
+                width: `${Math.min(s.pct, 100)}%`,
                 background:
                   i === stages.length - 1
                     ? "var(--primary)"
@@ -101,21 +106,64 @@ export function DashboardView({
   const petTotal  = stats?.petProfilesTotal    ?? null;
   const petNew    = stats?.petProfilesNewThisWeek ?? null;
   const alertsSent = stats?.alertsSent         ?? null;
+  const funnelStages = stats?.funnelStages ?? null;
+  const avgOrderValue30d = stats?.avgOrderValue30d ?? null;
+  const topPetSpecies = stats?.topPetSpecies ?? null;
+  const topPetSpeciesPct = stats?.topPetSpeciesPct ?? null;
+
+  const speciesLabel: Record<string, string> = { pies: "Pies", kot: "Kot", inny: "Inny" };
+
+  const quizCompleted = funnelStages?.[2]?.value ?? null;
+  const quizWithOrder = funnelStages?.[3]?.value ?? null;
+  const quizToOrderPct =
+    quizCompleted && quizWithOrder && quizCompleted > 0
+      ? Math.round((quizWithOrder / quizCompleted) * 100)
+      : null;
+
+  const quizCompleted7d  = stats?.quizCompleted7d  ?? null;
+  const quizWithOrder7d  = stats?.quizWithOrder7d  ?? null;
+
+  const trustTotal             = stats?.trustProductsTotal      ?? null;
+  const trustWithEndorsement   = stats?.trustWithEndorsement    ?? null;
+  const trustWithActiveCert    = stats?.trustWithActiveCert     ?? null;
+  const trustPremiumVerified   = stats?.trustPremiumVerified    ?? null;
+  const trustCertsExpiringSoon = stats?.trustCertsExpiringSoon  ?? null;
 
   const fmt = (n: number) => n.toLocaleString("pl-PL");
 
-  const recentOrders = ORDERS.slice(0, 5);
-  const lowStock     = PRODUCTS.filter((p) => p.stock > 0 && p.stock < 15).slice(0, 4);
+  const trustPct = (count: number | null) =>
+    count !== null && trustTotal ? Math.round((count / trustTotal) * 100) : 0;
+  const trustVal = (count: number | null) =>
+    count !== null && trustTotal !== null ? `${count} / ${trustTotal}` : "—";
+
+  const subtitle = (() => {
+    if (quizCompleted7d === null) return null;
+    const who = quizCompleted7d === 1 ? "1 właściciel ukończył" : `${quizCompleted7d} właścicieli ukończyło`;
+    let text = `W tym tygodniu ${who} quiz zdrowotny.`;
+    if (quizWithOrder7d !== null) {
+      text += ` ${quizWithOrder7d} z nich kupiło rekomendowany produkt`;
+      if (quizDelta !== null && Math.abs(quizDelta) >= 0.5) {
+        const dir = quizDelta >= 0 ? "więcej" : "mniej";
+        text += ` — to o ${Math.abs(quizDelta).toFixed(1)} pp ${dir} niż w poprzednim tygodniu`;
+      }
+      text += ".";
+    }
+    return text;
+  })();
+
+  const recentOrders: RecentOrder[] = stats?.recentOrders ?? [];
+  const lowStock = PRODUCTS.filter((p) => p.stock > 0 && p.stock < 15).slice(0, 4);
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("pl-PL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="page fade-in">
       <div className="page-header">
         <div>
-          <div className="page-eyebrow">Dzień dobry · Wtorek, 5 maja</div>
+          <div className="page-eyebrow">Dzień dobry · {new Date().toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" })}</div>
           <h1 className="page-title">Spokój ducha,<br/>w liczbach.</h1>
-          <p className="page-subtitle">
-            Dziś 47 właścicieli wypełniło quiz zdrowotny dla swoich pupili. 12 z nich kupiło rekomendowany produkt — to o 28% więcej niż w zeszłym tygodniu.
-          </p>
+          {subtitle && <p className="page-subtitle">{subtitle}</p>}
         </div>
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-ghost btn-sm"><Icon name="download" size={14} /> Eksport</button>
@@ -191,40 +239,64 @@ export function DashboardView({
             </button>
           </div>
 
-          <FunnelChart />
+          <FunnelChart stages={funnelStages} />
 
           <div className="divider" />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-            <FootStat label="Średni koszyk" value="194 PLN" delta="+8%" />
-            <FootStat label="Najczęstszy profil" value="Pies, 5–8 lat" delta="38% wszystkich quizów" deltaTone="quiet" />
-            <FootStat label="Najczęstsza rekomendacja" value="Stawy + Sierść" delta="Olej z łososia · 41 sprzedaży" deltaTone="quiet" />
+            <FootStat
+              label="Średni koszyk"
+              value={avgOrderValue30d !== null ? `${Math.round(avgOrderValue30d).toLocaleString("pl-PL")} PLN` : "—"}
+              delta="ostatnie 30 dni"
+              deltaTone="quiet"
+            />
+            <FootStat
+              label="Najczęstszy pupil"
+              value={topPetSpecies ? speciesLabel[topPetSpecies] ?? topPetSpecies : "—"}
+              delta={topPetSpeciesPct !== null && topPetSpecies ? `${topPetSpeciesPct}% profili` : "brak danych"}
+              deltaTone="quiet"
+            />
+            <FootStat
+              label="Konwersja Quiz → Zakup"
+              value={quizToOrderPct !== null ? `${quizToOrderPct}%` : "—"}
+              delta={quizCompleted !== null ? `z ${quizCompleted.toLocaleString("pl-PL")} quizów` : "ostatnie 30 dni"}
+              deltaTone={quizToOrderPct !== null && quizToOrderPct > 20 ? "up" : "quiet"}
+            />
           </div>
         </div>
 
         <div className="card-island">
-          <div className="eyebrow eyebrow-mossy">Trust signals · ten tydzień</div>
+          <div className="eyebrow eyebrow-mossy">Trust signals · aktualnie</div>
           <h2 className="section-title" style={{ marginTop: 6, marginBottom: 18 }}>
-            Weryfikacje<br/>weterynaryjne
+            Weryfikacje<br/>składu
           </h2>
 
           <div className="col" style={{ gap: 14 }}>
-            <TrustRow label="Produkty z endorsementem" value="68 / 142" pct={48} />
-            <TrustRow label="Aktualne certyfikaty"     value="124 / 142" pct={87} mossy />
-            <TrustRow label="Premium Verified"         value="89 / 142"  pct={63} mossy />
+            <TrustRow label="Produkty z endorsementem" value={trustVal(trustWithEndorsement)} pct={trustPct(trustWithEndorsement)} />
+            <TrustRow label="Aktualne certyfikaty"     value={trustVal(trustWithActiveCert)}   pct={trustPct(trustWithActiveCert)}   mossy />
+            <TrustRow label="Premium Verified"         value={trustVal(trustPremiumVerified)}  pct={trustPct(trustPremiumVerified)}  mossy />
           </div>
 
-          <div className="divider" style={{ background: "rgba(61,79,61,0.16)" }} />
-
-          <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(61,79,61,0.15)", display: "grid", placeItems: "center", color: "var(--secondary)", flexShrink: 0 }}>
-              <Icon name="alert" size={16} />
-            </div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-              <div style={{ color: "var(--text-primary)", fontWeight: 500, marginBottom: 2 }}>3 certyfikaty wygasają w ciągu 30 dni</div>
-              <div style={{ color: "var(--text-secondary)" }}>Olej z łososia, Probiotyk dla kota, Multiwitamina szczeniąt.</div>
-            </div>
-          </div>
+          {trustCertsExpiringSoon !== null && trustCertsExpiringSoon.length > 0 && (
+            <>
+              <div className="divider" style={{ background: "rgba(61,79,61,0.16)" }} />
+              <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(61,79,61,0.15)", display: "grid", placeItems: "center", color: "var(--secondary)", flexShrink: 0 }}>
+                  <Icon name="alert" size={16} />
+                </div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+                  <div style={{ color: "var(--text-primary)", fontWeight: 500, marginBottom: 2 }}>
+                    {trustCertsExpiringSoon.length === 1
+                      ? "1 certyfikat wygasa w ciągu 30 dni"
+                      : `${trustCertsExpiringSoon.length} certyfikaty wygasają w ciągu 30 dni`}
+                  </div>
+                  <div style={{ color: "var(--text-secondary)" }}>
+                    {trustCertsExpiringSoon.map((c) => c.productName).join(", ")}.
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -247,17 +319,31 @@ export function DashboardView({
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((o) => (
+              {recentOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: "center", color: "var(--text-tertiary)", padding: "24px 0" }}>
+                    Brak zamówień
+                  </td>
+                </tr>
+              ) : recentOrders.map((o) => (
                 <tr key={o.id}>
                   <td>
-                    <div style={{ fontWeight: 500 }}>{o.id}</div>
-                    <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{o.customer} · {o.date}</div>
+                    <div style={{ fontWeight: 500, fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                      #{o.id.slice(0, 8).toUpperCase()}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                      {o.customerName} · {fmtDate(o.createdAt)}
+                    </div>
                   </td>
                   <td>
-                    <div className="row" style={{ gap: 10 }}>
-                      <PetAvatar name={o.pet} size="sm" />
-                      <span>{o.pet}</span>
-                    </div>
+                    {o.petName ? (
+                      <div className="row" style={{ gap: 10 }}>
+                        <PetAvatar name={o.petName} size="sm" />
+                        <span>{o.petName}</span>
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--text-tertiary)" }}>—</span>
+                    )}
                   </td>
                   <td><StatusPill status={o.status} /></td>
                   <td style={{ textAlign: "right" }} className="tabular">

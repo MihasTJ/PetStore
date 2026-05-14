@@ -23,6 +23,8 @@ export interface Product {
   description: string;
   price: string;
   priceNumeric: number;
+  pricePromo?: number | null;
+  category?: string | null;
   weight: string;
   stock?: number;
   healthTags: string[];
@@ -37,6 +39,8 @@ export function ProductCard({
   description,
   price,
   priceNumeric,
+  pricePromo,
+  category,
   weight,
   stock = 9999,
   healthTags,
@@ -45,10 +49,11 @@ export function ProductCard({
 }: Product) {
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
+  const hasPromo = pricePromo != null && pricePromo > 0;
 
   function handleAdd() {
     if (added) return;
-    addItem({ id, slug, name, price: priceNumeric, weight, stock });
+    addItem({ id, slug, name, price: hasPromo ? pricePromo! : priceNumeric, weight, stock });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   }
@@ -92,6 +97,11 @@ export function ProductCard({
 
         {/* Name + description */}
         <a href={`/products/${slug}`} className="group/link">
+          {category && (
+            <p className="mb-1 text-[10px] font-medium tracking-widest uppercase text-ink-subtle">
+              {category}
+            </p>
+          )}
           <p className="text-sm font-medium leading-snug text-ink group-hover/link:opacity-70 transition-opacity">
             {name}
           </p>
@@ -111,7 +121,24 @@ export function ProductCard({
         <div className="border-t border-border-warm" />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3 pt-4">
           <div>
-            <p className="font-tnum text-base font-medium text-ink leading-tight">{price}</p>
+            {hasPromo ? (
+              <>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <p className="font-tnum text-base font-medium text-terracotta leading-tight">
+                    {pricePromo!.toFixed(2).replace(".", ",") + " zł"}
+                  </p>
+                  <p className="font-tnum text-sm text-ink-muted line-through leading-tight">{price}</p>
+                  <span
+                    className="rounded-tag px-1.5 py-0.5 text-[10px] font-medium text-terracotta"
+                    style={{ backgroundColor: "rgba(184,101,74,0.1)" }}
+                  >
+                    -{Math.round((1 - pricePromo! / priceNumeric) * 100)}%
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="font-tnum text-base font-medium text-ink leading-tight">{price}</p>
+            )}
             {weight && <p className="mt-0.5 text-[11px] text-ink-subtle">{weight}</p>}
           </div>
           <button
